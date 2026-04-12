@@ -43,6 +43,24 @@ DEFAULT_STATE = {
             "enabled": True,
         },
     ],
+    "importantSenders": [
+        {
+            "id": "sender-client",
+            "email": "klient@firma-example.pl",
+            "name": "Staly klient",
+            "reason": "Zapytania ofertowe i terminy realizacji",
+            "label": "Agent/wazne",
+            "enabled": True,
+        },
+        {
+            "id": "sender-accounting",
+            "email": "biuro@ksiegowosc.pl",
+            "name": "Ksiegowa",
+            "reason": "Rozliczenia, podatki i dokumenty terminowe",
+            "label": "Agent/wazne/ksiegowosc",
+            "enabled": True,
+        },
+    ],
     "messages": [
         {
             "id": "msg-1001",
@@ -57,6 +75,8 @@ DEFAULT_STATE = {
             "downloadedAttachments": [],
             "downloadStatus": "czeka na synchronizacje",
             "gmailLabel": "Agent/do-pobrania",
+            "attention": False,
+            "attentionReason": "",
         },
         {
             "id": "msg-1002",
@@ -71,6 +91,8 @@ DEFAULT_STATE = {
             "downloadedAttachments": [],
             "downloadStatus": "brak reguly pobierania",
             "gmailLabel": "Agent/do-odpowiedzi",
+            "attention": True,
+            "attentionReason": "Wazny nadawca: Staly klient",
         },
         {
             "id": "msg-1003",
@@ -85,6 +107,8 @@ DEFAULT_STATE = {
             "downloadedAttachments": [],
             "downloadStatus": "czeka na synchronizacje",
             "gmailLabel": "Agent/do-pobrania",
+            "attention": True,
+            "attentionReason": "Wazny nadawca: Ksiegowa",
         },
     ],
     "downloads": [],
@@ -135,6 +159,9 @@ def normalize_state(state):
     if "downloads" not in state:
         state["downloads"] = []
         changed = True
+    if "importantSenders" not in state:
+        state["importantSenders"] = DEFAULT_STATE["importantSenders"]
+        changed = True
     for message in state.get("messages", []):
         if "downloadedAttachments" not in message:
             message["downloadedAttachments"] = []
@@ -144,6 +171,12 @@ def normalize_state(state):
             changed = True
         if "gmailLabel" not in message:
             message["gmailLabel"] = "Agent/do-pobrania" if message.get("attachments") else "Agent/sprawdzone"
+            changed = True
+        if "attention" not in message:
+            message["attention"] = False
+            changed = True
+        if "attentionReason" not in message:
+            message["attentionReason"] = ""
             changed = True
     for rule in state.get("rules", []):
         if rule.get("id") == "rule-accounting":
@@ -219,6 +252,29 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
             self._send_json(build_dashboard(state), HTTPStatus.CREATED)
             return
 
+        if parsed_url.path == "/api/important-senders":
+            payload = self._read_json_body()
+            if payload is None:
+                return
+            sender = {
+                "id": f"sender-{int(datetime.now().timestamp())}",
+                "email": str(payload.get("email", "")).strip().lower(),
+                "name": str(payload.get("name", "Wazny nadawca")).strip() or "Wazny nadawca",
+                "reason": str(payload.get("reason", "Wymaga szybkiej uwagi")).strip() or "Wymaga szybkiej uwagi",
+                "label": str(payload.get("label", "Agent/wazne")).strip() or "Agent/wazne",
+                "enabled": True,
+            }
+            if "@" not in sender["email"]:
+                self._send_json({"error": "Podaj poprawny adres e-mail."}, HTTPStatus.BAD_REQUEST)
+                return
+            state = read_state()
+            state.setdefault("importantSenders", []).insert(0, sender)
+            apply_important_senders(state)
+            state["activity"].insert(0, f"Dodano waznego nadawce: {sender['email']}.")
+            write_state(state)
+            self._send_json(build_dashboard(state), HTTPStatus.CREATED)
+            return
+
         if parsed_url.path == "/api/draft":
             payload = self._read_json_body()
             if payload is None:
@@ -263,6 +319,7 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
 def build_dashboard(state=None):
     state = state or read_state()
     normalize_state(state)
+    apply_important_senders(state)
     messages = state["messages"]
     return {
         **state,
@@ -270,6 +327,7 @@ def build_dashboard(state=None):
             "messagesToday": sum(1 for item in messages if item["receivedAt"].startswith("2026-04-12")),
             "needsReply": sum(1 for item in messages if item["needsReply"]),
             "attachments": sum(len(item["attachments"]) for item in messages),
+            "attention": sum(1 for item in messages if item.get("attention")),
             "downloaded": len(state.get("downloads", [])),
             "rules": sum(1 for item in state["rules"] if item["enabled"]),
         },
@@ -290,6 +348,7 @@ def build_dashboard(state=None):
 
 def materialize_demo_downloads(state):
     saved_count = 0
+    apply_important_senders(state)
     state.setdefault("downloads", [])
     known_downloads = {item.get("path") for item in state["downloads"]}
     for message in state["messages"]:
@@ -363,6 +422,25 @@ def materialize_demo_downloads(state):
 
     state["downloads"] = state["downloads"][:30]
     return saved_count
+
+
+def apply_important_senders(state):
+    senders = {
+        item.get("email", "").lower(): item
+        for item in state.get("importantSenders", [])
+        if item.get("enabled") and item.get("email")
+    }
+    for message in state.get("messages", []):
+        important = senders.get(message.get("from", "").lower())
+        if important:
+            message["attention"] = True
+            message["priority"] = "wysoki"
+            message["attentionReason"] = f"Wazny nadawca: {important['name']}"
+            if not message.get("needsReply") and important.get("label") and not message.get("gmailLabel", "").startswith("Agent/pobrane"):
+                message["gmailLabel"] = important["label"]
+        elif "attention" not in message:
+            message["attention"] = False
+            message["attentionReason"] = ""
 
 
 def resolve_download_folder(folder):

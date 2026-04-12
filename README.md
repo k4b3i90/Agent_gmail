@@ -11,6 +11,7 @@ Lokalny prototyp asystenta Gmail do porzadkowania poczty, pobierania faktur i pr
 - synchronizacja demo zapisujaca pasujace dokumenty do folderow z regul,
 - historia pobranych dokumentow z informacja o folderze docelowym,
 - status przy wiadomosci: pobrano, brak reguly albo do sprawdzenia,
+- lista waznych nadawcow, ktorzy automatycznie podbijaja wiadomosci do uwagi,
 - szkic odpowiedzi generowany lokalnie na potrzeby prototypu.
 
 ## Uruchomienie
@@ -48,3 +49,10 @@ Regula ma nadawce, slowa kluczowe, etykiete i folder docelowy. Gdy agent znajdzi
 pasujaca wiadomosc, pobierze bezpieczne typy plikow, np. PDF, XML, DOCX albo XLSX,
 do wskazanego folderu na komputerze. Przy wiadomosci pojawi sie status pobrania,
 a w sekcji "Pobrane dokumenty" bedzie widac plik, nadawce, regule i pelna sciezke.
+
+## Wazni nadawcy
+
+Lista waznych nadawcow dziala niezaleznie od regul pobierania plikow. Wiadomosci
+od takich adresow dostaja priorytet, etykiete do uwagi i trafiaja wyzej na liscie.
+To dobre miejsce na stalych klientow, ksiegowa, urzedy, bank, dostawcow albo osoby,
+ktorych wiadomosci nie powinny zginac w codziennym szumie.

@@ -22,6 +22,7 @@
       <nav class="nav" aria-label="Nawigacja">
         <a href="#raport">Raport</a>
         <a href="#wiadomosci">Wiadomosci</a>
+        <a href="#wazni">Wazni</a>
         <a href="#reguly">Reguly</a>
       </nav>
     </header>
@@ -57,7 +58,7 @@
       <section class="stats" aria-label="Podsumowanie">
         <article><span>Maile dzisiaj</span><strong id="messagesToday">0</strong></article>
         <article><span>Do odpowiedzi</span><strong id="needsReply">0</strong></article>
-        <article><span>Zalaczniki</span><strong id="attachments">0</strong></article>
+        <article><span>Wazne</span><strong id="attentionCount">0</strong></article>
         <article><span>Pobrane pliki</span><strong id="downloadedCount">0</strong></article>
       </section>
 
@@ -120,6 +121,28 @@
           <label>Folder docelowy <input name="folder" placeholder="downloads/faktury/klient" required /></label>
           <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
           <button class="primary" type="submit">Dodaj regule</button>
+        </form>
+      </section>
+
+      <section class="grid main-grid" id="wazni">
+        <article class="panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Priorytety</p>
+            <h2>Wazni nadawcy</h2>
+          </div>
+          <div class="important-senders" id="importantSenders"></div>
+        </article>
+
+        <form class="panel rule-form" id="importantSenderForm">
+          <div class="panel-heading">
+            <p class="eyebrow">Nowy priorytet</p>
+            <h2>Dodaj adres do uwagi</h2>
+          </div>
+          <label>Nazwa <input name="name" placeholder="Klient VIP" required /></label>
+          <label>Adres e-mail <input name="email" type="email" placeholder="klient@example.pl" required /></label>
+          <label>Powod <input name="reason" placeholder="Terminy, oferty, pilne tematy" /></label>
+          <label>Etykieta Gmail <input name="label" placeholder="Agent/wazne/klienci" /></label>
+          <button class="primary" type="submit">Dodaj waznego nadawce</button>
         </form>
       </section>
 

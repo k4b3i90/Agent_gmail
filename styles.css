@@ -286,6 +286,7 @@ button {
 
 .report-list,
 .rules,
+.important-senders,
 .messages,
 .downloads,
 #activity {
@@ -298,6 +299,7 @@ button {
 .report-list li,
 .message,
 .rule,
+.important-sender,
 .download,
 #activity li {
   border: 1px solid var(--line);
@@ -312,6 +314,7 @@ button {
 
 .message,
 .rule,
+.important-sender,
 .download {
   padding: 16px;
 }
@@ -325,7 +328,9 @@ button {
 }
 
 .message h3,
-.rule h3 {
+.rule h3,
+.important-sender h3,
+.download h3 {
   margin: 0 0 6px;
   font-size: 1.02rem;
 }
@@ -358,6 +363,12 @@ button {
 .success {
   color: var(--accent-dark);
   background: var(--surface-strong);
+}
+
+.attention,
+.attention-pill {
+  color: #8a4d00;
+  background: #fff1d6;
 }
 
 .message-actions {

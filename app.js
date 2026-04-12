@@ -6,12 +6,13 @@ const elements = {
   lastSync: document.querySelector("#lastSync"),
   messagesToday: document.querySelector("#messagesToday"),
   needsReply: document.querySelector("#needsReply"),
-  attachments: document.querySelector("#attachments"),
+  attentionCount: document.querySelector("#attentionCount"),
   downloadedCount: document.querySelector("#downloadedCount"),
   dailyReport: document.querySelector("#dailyReport"),
   weeklyReport: document.querySelector("#weeklyReport"),
   messages: document.querySelector("#messages"),
   rules: document.querySelector("#rules"),
+  importantSenders: document.querySelector("#importantSenders"),
   downloads: document.querySelector("#downloads"),
   activity: document.querySelector("#activity"),
   draftBox: document.querySelector("#draftBox"),
@@ -19,6 +20,7 @@ const elements = {
   syncButton: document.querySelector("#syncButton"),
   connectButton: document.querySelector("#connectButton"),
   ruleForm: document.querySelector("#ruleForm"),
+  importantSenderForm: document.querySelector("#importantSenderForm"),
 };
 
 function showToast(message) {
@@ -59,13 +61,20 @@ function renderDashboard(payload) {
   elements.lastSync.textContent = payload.connection.lastSync || "jeszcze nie uruchomiono";
   elements.messagesToday.textContent = payload.stats.messagesToday;
   elements.needsReply.textContent = payload.stats.needsReply;
-  elements.attachments.textContent = payload.stats.attachments;
+  elements.attentionCount.textContent = payload.stats.attention;
   elements.downloadedCount.textContent = payload.stats.downloaded;
+
+  const sortedMessages = [...payload.messages].sort((first, second) => {
+    if (first.attention !== second.attention) return first.attention ? -1 : 1;
+    if (first.needsReply !== second.needsReply) return first.needsReply ? -1 : 1;
+    return second.receivedAt.localeCompare(first.receivedAt);
+  });
 
   renderList(elements.dailyReport, payload.report.daily, (item) => createElement("li", "", item));
   renderList(elements.weeklyReport, payload.report.weekly, (item) => createElement("li", "", item));
-  renderList(elements.messages, payload.messages, renderMessage);
+  renderList(elements.messages, sortedMessages, renderMessage);
   renderList(elements.rules, payload.rules, renderRule);
+  renderList(elements.importantSenders, payload.importantSenders, renderImportantSender);
   renderList(elements.downloads, payload.downloads, renderDownload);
   renderList(elements.activity, payload.activity.slice(0, 8), (item) => createElement("li", "", item));
 }
@@ -75,13 +84,14 @@ function renderMessage(message) {
   const head = createElement("div", "message-head");
   const titleWrap = createElement("div");
   titleWrap.append(createElement("h3", "", message.subject));
-  titleWrap.append(createElement("span", "message-meta", `${message.from} · ${message.receivedAt}`));
+  titleWrap.append(createElement("span", "message-meta", `${message.from} - ${message.receivedAt}`));
   head.append(titleWrap);
   head.append(createElement("span", `tag ${message.priority === "wysoki" ? "priority" : ""}`, message.priority));
 
   const summary = createElement("p", "", message.summary);
   const tags = createElement("div", "tags");
   tags.append(createElement("span", "tag", message.category));
+  if (message.attention) tags.append(createElement("span", "tag attention", message.attentionReason || "wazny nadawca"));
   tags.append(createElement("span", "tag success", message.downloadStatus));
   tags.append(createElement("span", "tag", message.gmailLabel));
   if (message.needsReply) tags.append(createElement("span", "tag", "wymaga odpowiedzi"));
@@ -111,6 +121,20 @@ function renderRule(rule) {
   card.append(head);
   card.append(createElement("p", "rule-meta", `Folder: ${rule.folder}`));
   card.append(createElement("p", "rule-meta", `Slowa: ${rule.keywords.join(", ") || "brak"}`));
+  return card;
+}
+
+function renderImportantSender(sender) {
+  const card = createElement("article", "important-sender");
+  const head = createElement("div", "rule-head");
+  const titleWrap = createElement("div");
+  titleWrap.append(createElement("h3", "", sender.name));
+  titleWrap.append(createElement("span", "rule-meta", sender.email));
+  head.append(titleWrap);
+  head.append(createElement("span", "pill attention-pill", "priorytet"));
+  card.append(head);
+  card.append(createElement("p", "rule-meta", `Powod: ${sender.reason}`));
+  card.append(createElement("p", "rule-meta", `Etykieta: ${sender.label}`));
   return card;
 }
 
@@ -168,8 +192,21 @@ async function addRule(event) {
   }
 }
 
+async function addImportantSender(event) {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(elements.importantSenderForm).entries());
+  try {
+    renderDashboard(await api("/api/important-senders", { method: "POST", body: JSON.stringify(payload) }));
+    elements.importantSenderForm.reset();
+    showToast("Wazny nadawca dodany. Pasujace wiadomosci beda oznaczone do uwagi.");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 elements.syncButton.addEventListener("click", syncDemo);
 elements.connectButton.addEventListener("click", () => showToast("Nastepny krok: konfiguracja Google OAuth i zgody Gmail API."));
 elements.ruleForm.addEventListener("submit", addRule);
+elements.importantSenderForm.addEventListener("submit", addImportantSender);
 
 loadDashboard().catch((error) => showToast(error.message));
