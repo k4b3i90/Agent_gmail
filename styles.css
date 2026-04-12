@@ -356,6 +356,29 @@ button {
   padding: 0;
 }
 
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.page-button {
+  min-height: 34px;
+  min-width: 34px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: #fff;
+  font-weight: 800;
+}
+
+.page-button.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .report-list li,
 .message,
 .rule,
@@ -706,6 +729,16 @@ textarea {
 
 .reply-composer label {
   color: var(--text);
+}
+
+.update-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.update-panel strong {
+  display: block;
+  margin-top: 5px;
 }
 
 .activity-panel {

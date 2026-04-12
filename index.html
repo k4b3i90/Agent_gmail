@@ -62,6 +62,27 @@
         <article><span>Pobrane pliki</span><strong id="downloadedCount">0</strong></article>
       </section>
 
+      <section class="collapsible-section is-open" id="aktualizacja">
+        <button class="section-toggle inline" type="button" aria-expanded="true">
+          <span>
+            <p class="eyebrow">Dane</p>
+            <h2>Aktualizacja codzienna danych</h2>
+          </span>
+          <span class="pill" id="dailyUpdateStatus">czeka</span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content">
+          <article class="panel update-panel">
+            <div>
+              <span class="message-meta">Ostatnia aktualizacja</span>
+              <strong id="dailyUpdateLastRun">jeszcze nie uruchomiono</strong>
+            </div>
+            <ul class="report-list" id="dailyUpdateItems"></ul>
+            <button class="primary" id="dailyUpdateButton" type="button">Uruchom aktualizacje</button>
+          </article>
+        </div>
+      </section>
+
       <section class="collapsible-section is-open" id="raport">
         <button class="section-toggle" type="button" aria-expanded="true">
           <span>
@@ -125,14 +146,13 @@
           <form class="panel rule-form" id="ruleForm">
             <div class="panel-heading">
               <p class="eyebrow">Nowa regula</p>
-              <h2>Dodaj nadawce</h2>
+              <h2>Regula pobierania plikow</h2>
             </div>
             <label>Nazwa <input name="name" placeholder="Faktury od klienta" required /></label>
             <label>Nadawca <input name="sender" type="email" placeholder="faktury@example.pl" required /></label>
             <label>Slowa kluczowe <input name="keywords" placeholder="faktura, pdf, vat" /></label>
             <label>Folder docelowy <input name="folder" placeholder="downloads/faktury/klient" required /></label>
-            <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
-            <button class="primary" type="submit">Dodaj regule</button>
+            <button class="primary" type="submit">Dodaj regule pobierania</button>
           </form>
         </div>
       </section>
@@ -162,7 +182,6 @@
             <label>Nazwa <input name="name" placeholder="Klient VIP" required /></label>
             <label>Adres e-mail <input name="email" type="email" placeholder="klient@example.pl" required /></label>
             <label>Powod <input name="reason" placeholder="Terminy, oferty, pilne tematy" /></label>
-            <label>Etykieta Gmail <input name="label" placeholder="Agent/wazne/klienci" /></label>
             <button class="primary" type="submit">Dodaj waznego nadawce</button>
           </form>
         </div>

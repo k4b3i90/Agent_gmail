@@ -116,6 +116,15 @@ DEFAULT_STATE = {
     ],
     "downloads": [],
     "sentReplies": [],
+    "dailyUpdate": {
+        "lastRun": None,
+        "status": "czeka",
+        "items": [
+            "Synchronizacja nowych wiadomosci",
+            "Sprawdzenie faktur i dokumentow",
+            "Odswiezenie priorytetow i raportu dnia",
+        ],
+    },
     "activity": [
         "Przygotowano reguly pobierania faktur i dokumentow.",
         "Wykryto 2 wiadomosci wymagajace uwagi w trybie demo.",
@@ -142,7 +151,7 @@ def ensure_state():
         STATE_PATH.write_text(json.dumps(DEFAULT_STATE, indent=2), encoding="utf-8")
         return
 
-    state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    state = json.loads(STATE_PATH.read_text(encoding="utf-8-sig"))
     changed = normalize_state(state)
     if changed:
         write_state(state)
@@ -150,7 +159,7 @@ def ensure_state():
 
 def read_state():
     ensure_state()
-    return json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    return json.loads(STATE_PATH.read_text(encoding="utf-8-sig"))
 
 
 def write_state(state):
@@ -165,6 +174,9 @@ def normalize_state(state):
         changed = True
     if "sentReplies" not in state:
         state["sentReplies"] = []
+        changed = True
+    if "dailyUpdate" not in state:
+        state["dailyUpdate"] = DEFAULT_STATE["dailyUpdate"]
         changed = True
     if "importantSenders" not in state:
         state["importantSenders"] = DEFAULT_STATE["importantSenders"]
@@ -252,7 +264,7 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
                 "sender": str(payload.get("sender", "")).strip(),
                 "keywords": [part.strip() for part in str(payload.get("keywords", "")).split(",") if part.strip()],
                 "folder": str(payload.get("folder", "downloads")).strip() or "downloads",
-                "label": str(payload.get("label", "Inne")).strip() or "Inne",
+                "label": str(payload.get("name", "Pliki")).strip() or "Pliki",
                 "enabled": True,
             }
             state = read_state()
@@ -271,7 +283,7 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
                 "email": str(payload.get("email", "")).strip().lower(),
                 "name": str(payload.get("name", "Wazny nadawca")).strip() or "Wazny nadawca",
                 "reason": str(payload.get("reason", "Wymaga szybkiej uwagi")).strip() or "Wymaga szybkiej uwagi",
-                "label": str(payload.get("label", "Agent/wazne")).strip() or "Agent/wazne",
+                "label": build_important_sender_label(str(payload.get("name", "Wazny nadawca")).strip()),
                 "enabled": True,
             }
             if "@" not in sender["email"]:
@@ -283,6 +295,23 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
             state["activity"].insert(0, f"Dodano waznego nadawce: {sender['email']}.")
             write_state(state)
             self._send_json(build_dashboard(state), HTTPStatus.CREATED)
+            return
+
+        if parsed_url.path == "/api/daily-update":
+            state = read_state()
+            state["dailyUpdate"] = {
+                "lastRun": now_label(),
+                "status": "zrobione",
+                "items": [
+                    "Pobrano najnowsze wiadomosci demo",
+                    "Przeliczono waznych nadawcow",
+                    "Odswiezono raport dzienny i statusy odpowiedzi",
+                ],
+            }
+            apply_important_senders(state)
+            state["activity"].insert(0, "Wykonano codzienna aktualizacje danych demo.")
+            write_state(state)
+            self._send_json(build_dashboard(state), HTTPStatus.OK)
             return
 
         if parsed_url.path == "/api/draft":
@@ -485,6 +514,11 @@ def apply_important_senders(state):
         elif "attention" not in message:
             message["attention"] = False
             message["attentionReason"] = ""
+
+
+def build_important_sender_label(name):
+    safe_name = "".join(char.lower() if char.isalnum() else "-" for char in name).strip("-")
+    return f"Agent/wazne/{safe_name or 'nadawca'}"
 
 
 def resolve_download_folder(folder):

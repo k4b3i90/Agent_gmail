@@ -4,7 +4,12 @@ const state = {
   manualReplies: new Set(),
   drafts: {},
   sentReplies: new Set(),
+  inboxPage: 1,
+  importantSendersPage: 1,
 };
+
+const INBOX_PAGE_SIZE = 10;
+const IMPORTANT_SENDERS_PAGE_SIZE = 5;
 
 const elements = {
   connectionStatus: document.querySelector("#connectionStatus"),
@@ -14,6 +19,9 @@ const elements = {
   needsReply: document.querySelector("#needsReply"),
   attentionCount: document.querySelector("#attentionCount"),
   downloadedCount: document.querySelector("#downloadedCount"),
+  dailyUpdateStatus: document.querySelector("#dailyUpdateStatus"),
+  dailyUpdateLastRun: document.querySelector("#dailyUpdateLastRun"),
+  dailyUpdateItems: document.querySelector("#dailyUpdateItems"),
   dailyReport: document.querySelector("#dailyReport"),
   weeklyReport: document.querySelector("#weeklyReport"),
   messages: document.querySelector("#messages"),
@@ -26,6 +34,7 @@ const elements = {
   modalContent: document.querySelector("#modalContent"),
   syncButton: document.querySelector("#syncButton"),
   connectButton: document.querySelector("#connectButton"),
+  dailyUpdateButton: document.querySelector("#dailyUpdateButton"),
   ruleForm: document.querySelector("#ruleForm"),
   importantSenderForm: document.querySelector("#importantSenderForm"),
 };
@@ -88,20 +97,50 @@ function renderDashboard(payload) {
   elements.needsReply.textContent = payload.stats.needsReply;
   elements.attentionCount.textContent = payload.stats.attention;
   elements.downloadedCount.textContent = payload.stats.downloaded;
+  elements.dailyUpdateStatus.textContent = payload.dailyUpdate?.status || "czeka";
+  elements.dailyUpdateLastRun.textContent = payload.dailyUpdate?.lastRun || "jeszcze nie uruchomiono";
 
   const sortedMessages = [...payload.messages].sort((first, second) => {
     if (first.attention !== second.attention) return first.attention ? -1 : 1;
     if (first.needsReply !== second.needsReply) return first.needsReply ? -1 : 1;
     return second.receivedAt.localeCompare(first.receivedAt);
   });
+  const sortedSenders = [...payload.importantSenders].sort((first, second) => first.name.localeCompare(second.name));
 
   renderList(elements.dailyReport, payload.report.daily, (item) => createElement("li", "", item));
   renderList(elements.weeklyReport, payload.report.weekly, (item) => createElement("li", "", item));
-  renderList(elements.messages, sortedMessages, renderMessage);
+  renderList(elements.dailyUpdateItems, payload.dailyUpdate?.items || [], (item) => createElement("li", "", item));
+  renderPagedList(elements.messages, sortedMessages, state.inboxPage, INBOX_PAGE_SIZE, renderMessage, (page) => {
+    state.inboxPage = page;
+    renderDashboard(state.dashboard);
+  });
   renderList(elements.rules, payload.rules, renderRule);
-  renderList(elements.importantSenders, payload.importantSenders, renderImportantSender);
+  renderPagedList(elements.importantSenders, sortedSenders, state.importantSendersPage, IMPORTANT_SENDERS_PAGE_SIZE, renderImportantSender, (page) => {
+    state.importantSendersPage = page;
+    renderDashboard(state.dashboard);
+  });
   renderList(elements.downloads, payload.downloads, renderDownload);
   renderList(elements.activity, payload.activity.slice(0, 8), (item) => createElement("li", "", item));
+}
+
+function renderPagedList(container, items, currentPage, pageSize, renderItem, onPageChange) {
+  container.innerHTML = "";
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(Math.max(currentPage, 1), pageCount);
+  const start = (safePage - 1) * pageSize;
+  items.slice(start, start + pageSize).forEach((item) => container.append(renderItem(item)));
+
+  if (pageCount < 2) return;
+
+  const pagination = createElement("nav", "pagination");
+  pagination.setAttribute("aria-label", "Strony");
+  for (let page = 1; page <= pageCount; page += 1) {
+    const button = createElement("button", page === safePage ? "page-button active" : "page-button", String(page));
+    button.type = "button";
+    button.addEventListener("click", () => onPageChange(page));
+    pagination.append(button);
+  }
+  container.append(pagination);
 }
 
 function renderMessage(message) {
@@ -167,10 +206,8 @@ function renderMessageDetails(message) {
   manualButton.type = "button";
   manualButton.addEventListener("click", () => {
     state.manualReplies.add(message.id);
-    if (state.dashboard) {
-      renderDashboard(state.dashboard);
-      openMessageModal(message.id);
-    }
+    const composer = document.querySelector("#replyComposer");
+    if (composer) composer.focus();
     showToast("Oznaczono: odpowiesz sam.");
   });
 
@@ -241,10 +278,20 @@ function renderMessageChecklist(message) {
   checklist.append(
     renderActionItem({
       icon: "AI",
-      title: message.needsReply ? "Odpowiedz" : "Odpowiedz niewymagana",
-      detail: sentReady ? "Odpowiedz wyslana" : draftReady ? "Szkic AI przygotowany" : manualReady ? "Oznaczono odpowiedz reczna" : message.needsReply ? "Czeka na decyzje" : "Agent nie widzi potrzeby odpowiedzi",
-      checked: sentReady || draftReady || manualReady || !message.needsReply,
-      tone: sentReady || draftReady || manualReady ? "success" : "",
+      title: "Szkic AI",
+      detail: draftReady ? "Szkic AI przygotowany" : "Nie wygenerowano szkicu AI",
+      checked: draftReady,
+      tone: draftReady ? "success" : "",
+    })
+  );
+
+  checklist.append(
+    renderActionItem({
+      icon: "SEND",
+      title: "Wyslana wiadomosc",
+      detail: sentReady ? "Odpowiedz wyslana" : manualReady ? "Piszesz odpowiedz recznie" : message.needsReply ? "Jeszcze nie wyslano odpowiedzi" : "Odpowiedz niewymagana",
+      checked: sentReady,
+      tone: sentReady ? "success" : "",
     })
   );
 
@@ -288,7 +335,6 @@ function renderImportantSender(sender) {
   head.append(createElement("span", "pill attention-pill", "priorytet"));
   card.append(head);
   card.append(createElement("p", "rule-meta", `Powod: ${sender.reason}`));
-  card.append(createElement("p", "rule-meta", `Etykieta: ${sender.label}`));
   return card;
 }
 
@@ -321,6 +367,20 @@ async function syncDemo() {
   } finally {
     elements.syncButton.disabled = false;
     elements.syncButton.textContent = "Uruchom synchronizacje demo";
+  }
+}
+
+async function runDailyUpdate() {
+  elements.dailyUpdateButton.disabled = true;
+  elements.dailyUpdateButton.textContent = "Aktualizuje...";
+  try {
+    renderDashboard(await api("/api/daily-update", { method: "POST", body: "{}" }));
+    showToast("Codzienna aktualizacja danych zakonczona.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    elements.dailyUpdateButton.disabled = false;
+    elements.dailyUpdateButton.textContent = "Uruchom aktualizacje";
   }
 }
 
@@ -391,6 +451,7 @@ async function addImportantSender(event) {
 
 elements.syncButton.addEventListener("click", syncDemo);
 elements.connectButton.addEventListener("click", () => showToast("Nastepny krok: konfiguracja Google OAuth i zgody Gmail API."));
+elements.dailyUpdateButton.addEventListener("click", runDailyUpdate);
 elements.ruleForm.addEventListener("submit", addRule);
 elements.importantSenderForm.addEventListener("submit", addImportantSender);
 document.querySelectorAll("[data-close-modal]").forEach((element) => {
