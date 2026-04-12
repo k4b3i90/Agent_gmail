@@ -235,18 +235,15 @@ function renderMessageChecklist(message) {
 }
 
 function renderActionItem({ icon, title, detail, checked, tone }) {
-  const item = createElement("div", `action-item ${tone || ""}`);
+  const stateClass = checked ? "done" : "pending";
+  const item = createElement("div", `action-item ${stateClass} ${tone || ""}`);
   const iconBox = createElement("span", "action-icon", icon);
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = checked;
-  checkbox.disabled = true;
-  checkbox.setAttribute("aria-label", title);
+  const stateText = createElement("span", "action-state", checked ? "zrobione" : "czeka");
 
   const copy = createElement("div", "action-copy");
   copy.append(createElement("strong", "", title));
   copy.append(createElement("span", "", detail));
-  item.append(iconBox, checkbox, copy);
+  item.append(iconBox, copy, stateText);
   return item;
 }
 

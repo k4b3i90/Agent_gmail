@@ -477,14 +477,14 @@ button {
 
 .action-item {
   display: grid;
-  grid-template-columns: 34px 20px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   min-height: 58px;
   padding: 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #f8fbfa;
+  background: #f3f5f5;
 }
 
 .action-icon {
@@ -497,12 +497,6 @@ button {
   background: var(--surface-strong);
   font-size: 0.72rem;
   font-weight: 900;
-}
-
-.action-item input {
-  width: 18px;
-  min-height: 18px;
-  accent-color: var(--accent);
 }
 
 .action-copy {
@@ -527,14 +521,41 @@ button {
   font-size: 0.78rem;
 }
 
-.action-item.success {
-  border-color: rgba(15, 143, 102, 0.28);
-  background: var(--surface-strong);
+.action-state {
+  justify-self: end;
+  border-radius: var(--radius);
+  padding: 5px 7px;
+  color: #6f7975;
+  background: #e6ebea;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.action-item.done {
+  border-color: rgba(15, 143, 102, 0.42);
+  background: #e5f6ee;
+}
+
+.action-item.done .action-icon,
+.action-item.done .action-state {
+  color: #fff;
+  background: var(--accent);
+}
+
+.action-item.pending .action-icon {
+  color: #6f7975;
+  background: #e1e6e4;
 }
 
 .action-item.attention {
   border-color: rgba(201, 151, 33, 0.35);
   background: #fff8ea;
+}
+
+.action-item.attention.done .action-icon,
+.action-item.attention.done .action-state {
+  color: #fff;
+  background: var(--warning);
 }
 
 .message-actions {
