@@ -371,6 +371,75 @@ button {
   background: #fff1d6;
 }
 
+.action-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.action-item {
+  display: grid;
+  grid-template-columns: 34px 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 58px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fbfa;
+}
+
+.action-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--accent-dark);
+  background: var(--surface-strong);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.action-item input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
+}
+
+.action-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.action-copy strong,
+.action-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-copy strong {
+  font-size: 0.88rem;
+}
+
+.action-copy span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.action-item.success {
+  border-color: rgba(15, 143, 102, 0.28);
+  background: var(--surface-strong);
+}
+
+.action-item.attention {
+  border-color: rgba(201, 151, 33, 0.35);
+  background: #fff8ea;
+}
+
 .message-actions {
   display: flex;
   flex-wrap: wrap;
@@ -485,5 +554,9 @@ input {
   .rule-head,
   .panel-heading.inline {
     display: grid;
+  }
+
+  .action-checklist {
+    grid-template-columns: 1fr;
   }
 }

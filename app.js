@@ -1,4 +1,7 @@
-const state = { dashboard: null };
+const state = {
+  dashboard: null,
+  draftedMessages: new Set(),
+};
 
 const elements = {
   connectionStatus: document.querySelector("#connectionStatus"),
@@ -89,16 +92,7 @@ function renderMessage(message) {
   head.append(createElement("span", `tag ${message.priority === "wysoki" ? "priority" : ""}`, message.priority));
 
   const summary = createElement("p", "", message.summary);
-  const tags = createElement("div", "tags");
-  tags.append(createElement("span", "tag", message.category));
-  if (message.attention) tags.append(createElement("span", "tag attention", message.attentionReason || "wazny nadawca"));
-  tags.append(createElement("span", "tag success", message.downloadStatus));
-  tags.append(createElement("span", "tag", message.gmailLabel));
-  if (message.needsReply) tags.append(createElement("span", "tag", "wymaga odpowiedzi"));
-  message.attachments.forEach((attachment) => tags.append(createElement("span", "tag", attachment)));
-  message.downloadedAttachments.forEach((attachment) => {
-    tags.append(createElement("span", "tag success", `zapisano: ${attachment.name}`));
-  });
+  const checklist = renderMessageChecklist(message);
 
   const actions = createElement("div", "message-actions");
   const draftButton = createElement("button", "secondary", "Napisz szkic");
@@ -106,8 +100,73 @@ function renderMessage(message) {
   draftButton.addEventListener("click", () => loadDraft(message.id));
   actions.append(draftButton);
 
-  card.append(head, summary, tags, actions);
+  card.append(head, summary, checklist, actions);
   return card;
+}
+
+function renderMessageChecklist(message) {
+  const checklist = createElement("div", "action-checklist");
+  const downloaded = message.downloadedAttachments.length > 0;
+  const hasLabel = Boolean(message.gmailLabel);
+  const draftReady = state.draftedMessages.has(message.id);
+
+  checklist.append(
+    renderActionItem({
+      icon: "!",
+      title: "Wazny nadawca",
+      detail: message.attentionReason || "Brak priorytetu",
+      checked: message.attention,
+      tone: message.attention ? "attention" : "",
+    })
+  );
+
+  checklist.append(
+    renderActionItem({
+      icon: "DL",
+      title: downloaded ? "Zapisano plik na dysku" : "Pobieranie dokumentow",
+      detail: downloaded ? message.downloadedAttachments.map((item) => item.path).join(", ") : message.downloadStatus,
+      checked: downloaded,
+      tone: downloaded ? "success" : "",
+    })
+  );
+
+  checklist.append(
+    renderActionItem({
+      icon: "TAG",
+      title: "Etykieta Gmail",
+      detail: message.gmailLabel || "Brak etykiety",
+      checked: hasLabel,
+      tone: hasLabel ? "success" : "",
+    })
+  );
+
+  checklist.append(
+    renderActionItem({
+      icon: "AI",
+      title: message.needsReply ? "Odpowiedz / szkic AI" : "Odpowiedz niewymagana",
+      detail: draftReady ? "Szkic odpowiedzi przygotowany" : message.needsReply ? "Czeka na przygotowanie szkicu" : "Agent nie widzi potrzeby odpowiedzi",
+      checked: draftReady || !message.needsReply,
+      tone: draftReady ? "success" : "",
+    })
+  );
+
+  return checklist;
+}
+
+function renderActionItem({ icon, title, detail, checked, tone }) {
+  const item = createElement("div", `action-item ${tone || ""}`);
+  const iconBox = createElement("span", "action-icon", icon);
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = checked;
+  checkbox.disabled = true;
+  checkbox.setAttribute("aria-label", title);
+
+  const copy = createElement("div", "action-copy");
+  copy.append(createElement("strong", "", title));
+  copy.append(createElement("span", "", detail));
+  item.append(iconBox, checkbox, copy);
+  return item;
 }
 
 function renderRule(rule) {
@@ -175,6 +234,8 @@ async function loadDraft(messageId) {
   try {
     const payload = await api("/api/draft", { method: "POST", body: JSON.stringify({ messageId }) });
     elements.draftBox.textContent = payload.draft;
+    state.draftedMessages.add(messageId);
+    if (state.dashboard) renderDashboard(state.dashboard);
   } catch (error) {
     elements.draftBox.textContent = error.message;
   }
