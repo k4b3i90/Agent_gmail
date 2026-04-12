@@ -26,6 +26,24 @@ const elements = {
   importantSenderForm: document.querySelector("#importantSenderForm"),
 };
 
+function initCollapsibleSections() {
+  document.querySelectorAll(".section-toggle").forEach((toggle) => {
+    const panel = toggle.closest(".panel");
+    if (!panel) return;
+
+    const isOpen = toggle.getAttribute("aria-expanded") === "true";
+    panel.classList.toggle("is-open", isOpen);
+    panel.classList.toggle("is-collapsed", !isOpen);
+
+    toggle.addEventListener("click", () => {
+      const nextState = !panel.classList.contains("is-open");
+      panel.classList.toggle("is-open", nextState);
+      panel.classList.toggle("is-collapsed", !nextState);
+      toggle.setAttribute("aria-expanded", String(nextState));
+    });
+  });
+}
+
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.add("visible");
@@ -270,4 +288,5 @@ elements.connectButton.addEventListener("click", () => showToast("Nastepny krok:
 elements.ruleForm.addEventListener("submit", addRule);
 elements.importantSenderForm.addEventListener("submit", addImportantSender);
 
+initCollapsibleSections();
 loadDashboard().catch((error) => showToast(error.message));

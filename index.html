@@ -62,104 +62,152 @@
         <article><span>Pobrane pliki</span><strong id="downloadedCount">0</strong></article>
       </section>
 
-      <section class="grid two-columns" id="raport">
+      <section class="grid two-columns collapsible-section is-open" id="raport">
         <article class="panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Dzisiaj</p>
-            <h2>Na co zwrocic uwage</h2>
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>
+              <p class="eyebrow">Dzisiaj</p>
+              <h2>Na co zwrocic uwage</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <ul class="report-list" id="dailyReport"></ul>
           </div>
-          <ul class="report-list" id="dailyReport"></ul>
         </article>
 
         <article class="panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Tydzien</p>
-            <h2>Raport tygodniowy</h2>
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>
+              <p class="eyebrow">Tydzien</p>
+              <h2>Raport tygodniowy</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <ul class="report-list" id="weeklyReport"></ul>
           </div>
-          <ul class="report-list" id="weeklyReport"></ul>
         </article>
       </section>
 
-      <section class="grid main-grid">
+      <section class="grid main-grid collapsible-section is-open">
         <article class="panel messages-panel" id="wiadomosci">
-          <div class="panel-heading inline">
-            <div>
+          <button class="section-toggle inline" type="button" aria-expanded="true">
+            <span>
               <p class="eyebrow">Inbox</p>
               <h2>Wiadomosci wymagajace decyzji</h2>
-            </div>
+            </span>
             <span class="pill">AI draft: demo</span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <div class="messages" id="messages"></div>
           </div>
-          <div class="messages" id="messages"></div>
         </article>
 
         <aside class="panel draft-panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Propozycja odpowiedzi</p>
-            <h2>Szkic AI</h2>
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>
+              <p class="eyebrow">Propozycja odpowiedzi</p>
+              <h2>Szkic AI</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <pre id="draftBox">Wybierz wiadomosc i kliknij "Napisz szkic".</pre>
           </div>
-          <pre id="draftBox">Wybierz wiadomosc i kliknij "Napisz szkic".</pre>
         </aside>
       </section>
 
-      <section class="grid main-grid" id="reguly">
+      <section class="grid main-grid collapsible-section" id="reguly">
         <article class="panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Automatyzacja</p>
-            <h2>Reguly pobierania plikow</h2>
+          <button class="section-toggle" type="button" aria-expanded="false">
+            <span>
+              <p class="eyebrow">Automatyzacja</p>
+              <h2>Reguly pobierania plikow</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <div class="rules" id="rules"></div>
           </div>
-          <div class="rules" id="rules"></div>
         </article>
 
         <form class="panel rule-form" id="ruleForm">
-          <div class="panel-heading">
-            <p class="eyebrow">Nowa regula</p>
-            <h2>Dodaj nadawce</h2>
+          <button class="section-toggle" type="button" aria-expanded="false">
+            <span>
+              <p class="eyebrow">Nowa regula</p>
+              <h2>Dodaj nadawce</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <label>Nazwa <input name="name" placeholder="Faktury od klienta" required /></label>
+            <label>Nadawca <input name="sender" type="email" placeholder="faktury@example.pl" required /></label>
+            <label>Slowa kluczowe <input name="keywords" placeholder="faktura, pdf, vat" /></label>
+            <label>Folder docelowy <input name="folder" placeholder="downloads/faktury/klient" required /></label>
+            <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
+            <button class="primary" type="submit">Dodaj regule</button>
           </div>
-          <label>Nazwa <input name="name" placeholder="Faktury od klienta" required /></label>
-          <label>Nadawca <input name="sender" type="email" placeholder="faktury@example.pl" required /></label>
-          <label>Slowa kluczowe <input name="keywords" placeholder="faktura, pdf, vat" /></label>
-          <label>Folder docelowy <input name="folder" placeholder="downloads/faktury/klient" required /></label>
-          <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
-          <button class="primary" type="submit">Dodaj regule</button>
         </form>
       </section>
 
-      <section class="grid main-grid" id="wazni">
+      <section class="grid main-grid collapsible-section" id="wazni">
         <article class="panel">
-          <div class="panel-heading">
-            <p class="eyebrow">Priorytety</p>
-            <h2>Wazni nadawcy</h2>
+          <button class="section-toggle" type="button" aria-expanded="false">
+            <span>
+              <p class="eyebrow">Priorytety</p>
+              <h2>Wazni nadawcy</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <div class="important-senders" id="importantSenders"></div>
           </div>
-          <div class="important-senders" id="importantSenders"></div>
         </article>
 
         <form class="panel rule-form" id="importantSenderForm">
-          <div class="panel-heading">
-            <p class="eyebrow">Nowy priorytet</p>
-            <h2>Dodaj adres do uwagi</h2>
+          <button class="section-toggle" type="button" aria-expanded="false">
+            <span>
+              <p class="eyebrow">Nowy priorytet</p>
+              <h2>Dodaj adres do uwagi</h2>
+            </span>
+            <span class="toggle-icon" aria-hidden="true">v</span>
+          </button>
+          <div class="section-content">
+            <label>Nazwa <input name="name" placeholder="Klient VIP" required /></label>
+            <label>Adres e-mail <input name="email" type="email" placeholder="klient@example.pl" required /></label>
+            <label>Powod <input name="reason" placeholder="Terminy, oferty, pilne tematy" /></label>
+            <label>Etykieta Gmail <input name="label" placeholder="Agent/wazne/klienci" /></label>
+            <button class="primary" type="submit">Dodaj waznego nadawce</button>
           </div>
-          <label>Nazwa <input name="name" placeholder="Klient VIP" required /></label>
-          <label>Adres e-mail <input name="email" type="email" placeholder="klient@example.pl" required /></label>
-          <label>Powod <input name="reason" placeholder="Terminy, oferty, pilne tematy" /></label>
-          <label>Etykieta Gmail <input name="label" placeholder="Agent/wazne/klienci" /></label>
-          <button class="primary" type="submit">Dodaj waznego nadawce</button>
         </form>
       </section>
 
-      <section class="panel downloads-panel">
-        <div class="panel-heading">
-          <p class="eyebrow">Potwierdzenia</p>
-          <h2>Pobrane dokumenty</h2>
+      <section class="panel downloads-panel collapsible-section">
+        <button class="section-toggle" type="button" aria-expanded="false">
+          <span>
+            <p class="eyebrow">Potwierdzenia</p>
+            <h2>Pobrane dokumenty</h2>
+          </span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content">
+          <div class="downloads" id="downloads"></div>
         </div>
-        <div class="downloads" id="downloads"></div>
       </section>
 
-      <section class="panel activity-panel">
-        <div class="panel-heading">
-          <p class="eyebrow">Dziennik</p>
-          <h2>Co agent zrobil</h2>
+      <section class="panel activity-panel collapsible-section">
+        <button class="section-toggle" type="button" aria-expanded="false">
+          <span>
+            <p class="eyebrow">Dziennik</p>
+            <h2>Co agent zrobil</h2>
+          </span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content">
+          <ol id="activity"></ol>
         </div>
-        <ol id="activity"></ol>
       </section>
     </main>
 

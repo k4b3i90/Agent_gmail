@@ -271,6 +271,61 @@ button {
   gap: 14px;
 }
 
+.section-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 18px;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+}
+
+.section-toggle.inline {
+  grid-template-columns: minmax(0, 1fr) auto 34px;
+}
+
+.section-toggle .eyebrow {
+  margin-bottom: 8px;
+}
+
+.section-toggle:hover .toggle-icon {
+  border-color: rgba(15, 143, 102, 0.32);
+}
+
+.toggle-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--accent-dark);
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.panel.is-open > .section-toggle .toggle-icon {
+  transform: rotate(180deg);
+  background: var(--surface-strong);
+}
+
+.panel.is-collapsed > .section-content {
+  display: none;
+}
+
+.panel.is-collapsed > .section-toggle {
+  padding-bottom: 0;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -465,6 +520,11 @@ button {
 }
 
 .rule-form {
+  display: grid;
+  gap: 12px;
+}
+
+.rule-form .section-content {
   display: grid;
   gap: 12px;
 }
