@@ -77,6 +77,7 @@ DEFAULT_STATE = {
             "gmailLabel": "Agent/do-pobrania",
             "attention": False,
             "attentionReason": "",
+            "replyStatus": "brak odpowiedzi",
         },
         {
             "id": "msg-1002",
@@ -93,6 +94,7 @@ DEFAULT_STATE = {
             "gmailLabel": "Agent/do-odpowiedzi",
             "attention": True,
             "attentionReason": "Wazny nadawca: Staly klient",
+            "replyStatus": "czeka na odpowiedz",
         },
         {
             "id": "msg-1003",
@@ -109,9 +111,11 @@ DEFAULT_STATE = {
             "gmailLabel": "Agent/do-pobrania",
             "attention": True,
             "attentionReason": "Wazny nadawca: Ksiegowa",
+            "replyStatus": "brak odpowiedzi",
         },
     ],
     "downloads": [],
+    "sentReplies": [],
     "activity": [
         "Przygotowano reguly pobierania faktur i dokumentow.",
         "Wykryto 2 wiadomosci wymagajace uwagi w trybie demo.",
@@ -159,6 +163,9 @@ def normalize_state(state):
     if "downloads" not in state:
         state["downloads"] = []
         changed = True
+    if "sentReplies" not in state:
+        state["sentReplies"] = []
+        changed = True
     if "importantSenders" not in state:
         state["importantSenders"] = DEFAULT_STATE["importantSenders"]
         changed = True
@@ -177,6 +184,9 @@ def normalize_state(state):
             changed = True
         if "attentionReason" not in message:
             message["attentionReason"] = ""
+            changed = True
+        if "replyStatus" not in message:
+            message["replyStatus"] = "czeka na odpowiedz" if message.get("needsReply") else "brak odpowiedzi"
             changed = True
     for rule in state.get("rules", []):
         if rule.get("id") == "rule-accounting":
@@ -281,6 +291,40 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
                 return
             draft = build_demo_draft(str(payload.get("messageId", "")))
             self._send_json({"draft": draft}, HTTPStatus.OK)
+            return
+
+        if parsed_url.path == "/api/send":
+            payload = self._read_json_body()
+            if payload is None:
+                return
+            message_id = str(payload.get("messageId", "")).strip()
+            body = str(payload.get("body", "")).strip()
+            if not body:
+                self._send_json({"error": "Wpisz tresc odpowiedzi przed wyslaniem."}, HTTPStatus.BAD_REQUEST)
+                return
+
+            state = read_state()
+            message = find_message(state, message_id)
+            if message is None:
+                self._send_json({"error": "Nie znaleziono wiadomosci."}, HTTPStatus.NOT_FOUND)
+                return
+
+            sent = {
+                "messageId": message_id,
+                "to": message["from"],
+                "subject": f"Re: {message['subject']}",
+                "body": body,
+                "sentAt": now_label(),
+                "mode": "demo",
+            }
+            state.setdefault("sentReplies", []).insert(0, sent)
+            state["sentReplies"] = state["sentReplies"][:30]
+            message["needsReply"] = False
+            message["replyStatus"] = "wyslano demo"
+            message["gmailLabel"] = "Agent/odpowiedziano"
+            state["activity"].insert(0, f"Wyslano odpowiedz demo do {message['from']} w sprawie: {message['subject']}.")
+            write_state(state)
+            self._send_json(build_dashboard(state), HTTPStatus.OK)
             return
 
         self._send_json({"error": "Nieprawidlowy endpoint."}, HTTPStatus.NOT_FOUND)
@@ -479,6 +523,13 @@ def build_demo_draft(message_id):
             "Pozdrawiam"
         )
     return "Dzien dobry,\n\ndziekuje za wiadomosc. Temat zostal odnotowany i wroce z odpowiedzia.\n\nPozdrawiam"
+
+
+def find_message(state, message_id):
+    for message in state.get("messages", []):
+        if message.get("id") == message_id:
+            return message
+    return None
 
 
 if __name__ == "__main__":

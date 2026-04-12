@@ -3,6 +3,7 @@ const state = {
   draftedMessages: new Set(),
   manualReplies: new Set(),
   drafts: {},
+  sentReplies: new Set(),
 };
 
 const elements = {
@@ -120,6 +121,7 @@ function renderMessage(message) {
   const meta = createElement("div", "message-row-meta");
   if (message.attention) meta.append(createElement("span", "mini-status attention", "wazne"));
   if (message.needsReply) meta.append(createElement("span", "mini-status", "do odpowiedzi"));
+  if (message.replyStatus?.includes("wyslano")) meta.append(createElement("span", "mini-status success", "odpowiedziano"));
   if (message.downloadedAttachments.length > 0) meta.append(createElement("span", "mini-status success", "pobrano plik"));
 
   card.addEventListener("click", () => openMessageModal(message.id));
@@ -175,12 +177,26 @@ function renderMessageDetails(message) {
   const draftButton = createElement("button", "primary", "Odpowiedz z AI");
   draftButton.type = "button";
   draftButton.addEventListener("click", () => loadDraft(message.id));
-  actions.append(manualButton, draftButton);
+
+  const sendButton = createElement("button", "primary", "Wyslij demo");
+  sendButton.type = "button";
+  sendButton.addEventListener("click", () => sendReply(message.id));
+  actions.append(manualButton, draftButton, sendButton);
+
+  const composer = createElement("div", "reply-composer");
+  const composerLabel = createElement("label", "", "Odpowiedz do wyslania");
+  const textarea = document.createElement("textarea");
+  textarea.id = "replyComposer";
+  textarea.rows = 7;
+  textarea.placeholder = "Napisz odpowiedz tutaj albo wygeneruj szkic AI.";
+  textarea.value = state.drafts[message.id] || "";
+  composerLabel.append(textarea);
+  composer.append(composerLabel);
 
   const draft = createElement("pre", "modal-draft", state.drafts[message.id] || "Szkic AI pojawi sie tutaj po kliknieciu.");
   draft.id = "draftBox";
 
-  wrapper.append(header, body, checklist, actions, draft);
+  wrapper.append(header, body, checklist, composer, actions, draft);
   return wrapper;
 }
 
@@ -190,6 +206,7 @@ function renderMessageChecklist(message) {
   const hasLabel = Boolean(message.gmailLabel);
   const draftReady = state.draftedMessages.has(message.id);
   const manualReady = state.manualReplies.has(message.id);
+  const sentReady = state.sentReplies.has(message.id) || message.replyStatus?.includes("wyslano");
 
   checklist.append(
     renderActionItem({
@@ -225,9 +242,9 @@ function renderMessageChecklist(message) {
     renderActionItem({
       icon: "AI",
       title: message.needsReply ? "Odpowiedz" : "Odpowiedz niewymagana",
-      detail: draftReady ? "Szkic AI przygotowany" : manualReady ? "Oznaczono odpowiedz reczna" : message.needsReply ? "Czeka na decyzje" : "Agent nie widzi potrzeby odpowiedzi",
-      checked: draftReady || manualReady || !message.needsReply,
-      tone: draftReady || manualReady ? "success" : "",
+      detail: sentReady ? "Odpowiedz wyslana" : draftReady ? "Szkic AI przygotowany" : manualReady ? "Oznaczono odpowiedz reczna" : message.needsReply ? "Czeka na decyzje" : "Agent nie widzi potrzeby odpowiedzi",
+      checked: sentReady || draftReady || manualReady || !message.needsReply,
+      tone: sentReady || draftReady || manualReady ? "success" : "",
     })
   );
 
@@ -314,6 +331,8 @@ async function loadDraft(messageId) {
     const payload = await api("/api/draft", { method: "POST", body: JSON.stringify({ messageId }) });
     state.drafts[messageId] = payload.draft;
     if (draftBox) draftBox.textContent = payload.draft;
+    const composer = document.querySelector("#replyComposer");
+    if (composer) composer.value = payload.draft;
     state.draftedMessages.add(messageId);
     if (state.dashboard) {
       renderDashboard(state.dashboard);
@@ -321,6 +340,28 @@ async function loadDraft(messageId) {
     }
   } catch (error) {
     if (draftBox) draftBox.textContent = error.message;
+  }
+}
+
+async function sendReply(messageId) {
+  const composer = document.querySelector("#replyComposer");
+  const body = composer?.value.trim() || "";
+  if (!body) {
+    showToast("Wpisz tresc odpowiedzi przed wyslaniem.");
+    return;
+  }
+
+  try {
+    const dashboard = await api("/api/send", {
+      method: "POST",
+      body: JSON.stringify({ messageId, body }),
+    });
+    state.sentReplies.add(messageId);
+    renderDashboard(dashboard);
+    openMessageModal(messageId);
+    showToast("Odpowiedz wyslana w trybie demo.");
+  } catch (error) {
+    showToast(error.message);
   }
 }
 
