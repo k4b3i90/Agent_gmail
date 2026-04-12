@@ -98,18 +98,10 @@
           <span class="pill">AI draft: demo</span>
           <span class="toggle-icon" aria-hidden="true">v</span>
         </button>
-        <div class="section-content grid main-grid">
+        <div class="section-content">
           <article class="panel messages-panel">
             <div class="messages" id="messages"></div>
           </article>
-
-          <aside class="panel draft-panel">
-            <div class="panel-heading">
-              <p class="eyebrow">Propozycja odpowiedzi</p>
-              <h2>Szkic AI</h2>
-            </div>
-            <pre id="draftBox">Wybierz wiadomosc i kliknij "Napisz szkic".</pre>
-          </aside>
         </div>
       </section>
 
@@ -206,6 +198,14 @@
         </div>
       </section>
     </main>
+
+    <div class="modal" id="messageModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <article class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button class="modal-close" type="button" data-close-modal aria-label="Zamknij">x</button>
+        <div class="modal-content" id="modalContent"></div>
+      </article>
+    </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="./app.js"></script>

@@ -1,6 +1,8 @@
 const state = {
   dashboard: null,
   draftedMessages: new Set(),
+  manualReplies: new Set(),
+  drafts: {},
 };
 
 const elements = {
@@ -18,8 +20,9 @@ const elements = {
   importantSenders: document.querySelector("#importantSenders"),
   downloads: document.querySelector("#downloads"),
   activity: document.querySelector("#activity"),
-  draftBox: document.querySelector("#draftBox"),
   toast: document.querySelector("#toast"),
+  messageModal: document.querySelector("#messageModal"),
+  modalContent: document.querySelector("#modalContent"),
   syncButton: document.querySelector("#syncButton"),
   connectButton: document.querySelector("#connectButton"),
   ruleForm: document.querySelector("#ruleForm"),
@@ -101,7 +104,11 @@ function renderDashboard(payload) {
 }
 
 function renderMessage(message) {
-  const card = createElement("article", "message");
+  const card = createElement("article", "message message-row");
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `Otworz wiadomosc: ${message.subject}`);
+
   const head = createElement("div", "message-head");
   const titleWrap = createElement("div");
   titleWrap.append(createElement("h3", "", message.subject));
@@ -110,16 +117,71 @@ function renderMessage(message) {
   head.append(createElement("span", `tag ${message.priority === "wysoki" ? "priority" : ""}`, message.priority));
 
   const summary = createElement("p", "", message.summary);
-  const checklist = renderMessageChecklist(message);
+  const meta = createElement("div", "message-row-meta");
+  if (message.attention) meta.append(createElement("span", "mini-status attention", "wazne"));
+  if (message.needsReply) meta.append(createElement("span", "mini-status", "do odpowiedzi"));
+  if (message.downloadedAttachments.length > 0) meta.append(createElement("span", "mini-status success", "pobrano plik"));
 
+  card.addEventListener("click", () => openMessageModal(message.id));
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openMessageModal(message.id);
+    }
+  });
+
+  card.append(head, summary, meta);
+  return card;
+}
+
+function openMessageModal(messageId) {
+  const message = state.dashboard?.messages.find((item) => item.id === messageId);
+  if (!message) return;
+
+  elements.modalContent.innerHTML = "";
+  elements.modalContent.append(renderMessageDetails(message));
+  elements.messageModal.classList.add("visible");
+  elements.messageModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeMessageModal() {
+  elements.messageModal.classList.remove("visible");
+  elements.messageModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+function renderMessageDetails(message) {
+  const wrapper = createElement("div", "message-detail");
+  const header = createElement("header", "message-detail-head");
+  header.append(createElement("p", "eyebrow", "Podglad wiadomosci"));
+  header.append(createElement("h2", "", message.subject));
+  header.append(createElement("span", "message-meta", `${message.from} - ${message.receivedAt}`));
+
+  const body = createElement("p", "message-body", message.summary);
+  const checklist = renderMessageChecklist(message);
   const actions = createElement("div", "message-actions");
-  const draftButton = createElement("button", "secondary", "Napisz szkic");
+  const manualButton = createElement("button", "secondary", "Odpowiem sam");
+  manualButton.type = "button";
+  manualButton.addEventListener("click", () => {
+    state.manualReplies.add(message.id);
+    if (state.dashboard) {
+      renderDashboard(state.dashboard);
+      openMessageModal(message.id);
+    }
+    showToast("Oznaczono: odpowiesz sam.");
+  });
+
+  const draftButton = createElement("button", "primary", "Odpowiedz z AI");
   draftButton.type = "button";
   draftButton.addEventListener("click", () => loadDraft(message.id));
-  actions.append(draftButton);
+  actions.append(manualButton, draftButton);
 
-  card.append(head, summary, checklist, actions);
-  return card;
+  const draft = createElement("pre", "modal-draft", state.drafts[message.id] || "Szkic AI pojawi sie tutaj po kliknieciu.");
+  draft.id = "draftBox";
+
+  wrapper.append(header, body, checklist, actions, draft);
+  return wrapper;
 }
 
 function renderMessageChecklist(message) {
@@ -127,6 +189,7 @@ function renderMessageChecklist(message) {
   const downloaded = message.downloadedAttachments.length > 0;
   const hasLabel = Boolean(message.gmailLabel);
   const draftReady = state.draftedMessages.has(message.id);
+  const manualReady = state.manualReplies.has(message.id);
 
   checklist.append(
     renderActionItem({
@@ -161,10 +224,10 @@ function renderMessageChecklist(message) {
   checklist.append(
     renderActionItem({
       icon: "AI",
-      title: message.needsReply ? "Odpowiedz / szkic AI" : "Odpowiedz niewymagana",
-      detail: draftReady ? "Szkic odpowiedzi przygotowany" : message.needsReply ? "Czeka na przygotowanie szkicu" : "Agent nie widzi potrzeby odpowiedzi",
-      checked: draftReady || !message.needsReply,
-      tone: draftReady ? "success" : "",
+      title: message.needsReply ? "Odpowiedz" : "Odpowiedz niewymagana",
+      detail: draftReady ? "Szkic AI przygotowany" : manualReady ? "Oznaczono odpowiedz reczna" : message.needsReply ? "Czeka na decyzje" : "Agent nie widzi potrzeby odpowiedzi",
+      checked: draftReady || manualReady || !message.needsReply,
+      tone: draftReady || manualReady ? "success" : "",
     })
   );
 
@@ -248,14 +311,19 @@ async function syncDemo() {
 }
 
 async function loadDraft(messageId) {
-  elements.draftBox.textContent = "Pisze szkic...";
+  const draftBox = document.querySelector("#draftBox");
+  if (draftBox) draftBox.textContent = "Pisze szkic...";
   try {
     const payload = await api("/api/draft", { method: "POST", body: JSON.stringify({ messageId }) });
-    elements.draftBox.textContent = payload.draft;
+    state.drafts[messageId] = payload.draft;
+    if (draftBox) draftBox.textContent = payload.draft;
     state.draftedMessages.add(messageId);
-    if (state.dashboard) renderDashboard(state.dashboard);
+    if (state.dashboard) {
+      renderDashboard(state.dashboard);
+      openMessageModal(messageId);
+    }
   } catch (error) {
-    elements.draftBox.textContent = error.message;
+    if (draftBox) draftBox.textContent = error.message;
   }
 }
 
@@ -287,6 +355,12 @@ elements.syncButton.addEventListener("click", syncDemo);
 elements.connectButton.addEventListener("click", () => showToast("Nastepny krok: konfiguracja Google OAuth i zgody Gmail API."));
 elements.ruleForm.addEventListener("submit", addRule);
 elements.importantSenderForm.addEventListener("submit", addImportantSender);
+document.querySelectorAll("[data-close-modal]").forEach((element) => {
+  element.addEventListener("click", closeMessageModal);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMessageModal();
+});
 
 initCollapsibleSections();
 loadDashboard().catch((error) => showToast(error.message));
