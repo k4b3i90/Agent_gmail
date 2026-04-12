@@ -8,7 +8,9 @@ Lokalny prototyp asystenta Gmail do porzadkowania poczty, pobierania faktur i pr
 - raport dzienny i tygodniowy na danych demo,
 - lista wiadomosci wymagajacych decyzji,
 - reguly pobierania zalacznikow od konkretnych nadawcow,
-- synchronizacja demo tworzaca testowe pliki w `downloads/`,
+- synchronizacja demo zapisujaca pasujace dokumenty do folderow z regul,
+- historia pobranych dokumentow z informacja o folderze docelowym,
+- status przy wiadomosci: pobrano, brak reguly albo do sprawdzenia,
 - szkic odpowiedzi generowany lokalnie na potrzeby prototypu.
 
 ## Uruchomienie
@@ -39,3 +41,10 @@ http://127.0.0.1:4188
 - Zalaczniki pobieramy tylko od zaufanych nadawcow.
 - ZIP i podejrzane rozszerzenia wymagaja recznego sprawdzenia.
 - Tokeny OAuth trzymamy lokalnie w `tokens/`, poza repo.
+
+## Jak beda dzialac faktury i dokumenty
+
+Regula ma nadawce, slowa kluczowe, etykiete i folder docelowy. Gdy agent znajdzie
+pasujaca wiadomosc, pobierze bezpieczne typy plikow, np. PDF, XML, DOCX albo XLSX,
+do wskazanego folderu na komputerze. Przy wiadomosci pojawi sie status pobrania,
+a w sekcji "Pobrane dokumenty" bedzie widac plik, nadawce, regule i pelna sciezke.

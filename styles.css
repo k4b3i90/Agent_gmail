@@ -287,6 +287,7 @@ button {
 .report-list,
 .rules,
 .messages,
+.downloads,
 #activity {
   display: grid;
   gap: 12px;
@@ -297,6 +298,7 @@ button {
 .report-list li,
 .message,
 .rule,
+.download,
 #activity li {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -309,7 +311,8 @@ button {
 }
 
 .message,
-.rule {
+.rule,
+.download {
   padding: 16px;
 }
 
@@ -350,6 +353,11 @@ button {
 .priority {
   color: #fff;
   background: var(--danger);
+}
+
+.success {
+  color: var(--accent-dark);
+  background: var(--surface-strong);
 }
 
 .message-actions {
@@ -399,6 +407,10 @@ input {
 }
 
 .activity-panel {
+  margin-top: 18px;
+}
+
+.downloads-panel {
   margin-top: 18px;
 }
 

@@ -7,11 +7,12 @@ const elements = {
   messagesToday: document.querySelector("#messagesToday"),
   needsReply: document.querySelector("#needsReply"),
   attachments: document.querySelector("#attachments"),
-  rulesCount: document.querySelector("#rulesCount"),
+  downloadedCount: document.querySelector("#downloadedCount"),
   dailyReport: document.querySelector("#dailyReport"),
   weeklyReport: document.querySelector("#weeklyReport"),
   messages: document.querySelector("#messages"),
   rules: document.querySelector("#rules"),
+  downloads: document.querySelector("#downloads"),
   activity: document.querySelector("#activity"),
   draftBox: document.querySelector("#draftBox"),
   toast: document.querySelector("#toast"),
@@ -59,12 +60,13 @@ function renderDashboard(payload) {
   elements.messagesToday.textContent = payload.stats.messagesToday;
   elements.needsReply.textContent = payload.stats.needsReply;
   elements.attachments.textContent = payload.stats.attachments;
-  elements.rulesCount.textContent = payload.stats.rules;
+  elements.downloadedCount.textContent = payload.stats.downloaded;
 
   renderList(elements.dailyReport, payload.report.daily, (item) => createElement("li", "", item));
   renderList(elements.weeklyReport, payload.report.weekly, (item) => createElement("li", "", item));
   renderList(elements.messages, payload.messages, renderMessage);
   renderList(elements.rules, payload.rules, renderRule);
+  renderList(elements.downloads, payload.downloads, renderDownload);
   renderList(elements.activity, payload.activity.slice(0, 8), (item) => createElement("li", "", item));
 }
 
@@ -80,8 +82,13 @@ function renderMessage(message) {
   const summary = createElement("p", "", message.summary);
   const tags = createElement("div", "tags");
   tags.append(createElement("span", "tag", message.category));
+  tags.append(createElement("span", "tag success", message.downloadStatus));
+  tags.append(createElement("span", "tag", message.gmailLabel));
   if (message.needsReply) tags.append(createElement("span", "tag", "wymaga odpowiedzi"));
   message.attachments.forEach((attachment) => tags.append(createElement("span", "tag", attachment)));
+  message.downloadedAttachments.forEach((attachment) => {
+    tags.append(createElement("span", "tag success", `zapisano: ${attachment.name}`));
+  });
 
   const actions = createElement("div", "message-actions");
   const draftButton = createElement("button", "secondary", "Napisz szkic");
@@ -107,6 +114,20 @@ function renderRule(rule) {
   return card;
 }
 
+function renderDownload(download) {
+  const card = createElement("article", "download");
+  const head = createElement("div", "rule-head");
+  const titleWrap = createElement("div");
+  titleWrap.append(createElement("h3", "", download.file));
+  titleWrap.append(createElement("span", "rule-meta", `${download.sender} - ${download.downloadedAt}`));
+  head.append(titleWrap);
+  head.append(createElement("span", "pill", download.status));
+  card.append(head);
+  card.append(createElement("p", "rule-meta", `Folder: ${download.path}`));
+  card.append(createElement("p", "rule-meta", `Regula: ${download.rule}`));
+  return card;
+}
+
 async function loadDashboard() {
   renderDashboard(await api("/api/dashboard"));
 }
@@ -116,7 +137,7 @@ async function syncDemo() {
   elements.syncButton.textContent = "Synchronizuje...";
   try {
     renderDashboard(await api("/api/sync", { method: "POST", body: "{}" }));
-    showToast("Synchronizacja demo zakonczona. Pliki testowe trafily do downloads.");
+    showToast("Synchronizacja zakonczona. Dokumenty zapisano w folderach z regul.");
   } catch (error) {
     showToast(error.message);
   } finally {

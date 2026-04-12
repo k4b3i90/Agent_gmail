@@ -37,7 +37,7 @@ DEFAULT_STATE = {
             "id": "rule-accounting",
             "name": "Dokumenty od ksiegowej",
             "sender": "biuro@ksiegowosc.pl",
-            "keywords": ["zus", "deklaracja", "podatek"],
+            "keywords": ["zus", "deklaracja", "podatek", "dokumenty", "rozliczenie"],
             "folder": "downloads/ksiegowosc",
             "label": "Ksiegowosc",
             "enabled": True,
@@ -54,6 +54,9 @@ DEFAULT_STATE = {
             "needsReply": False,
             "summary": "Nowa faktura za materialy budowlane. Termin platnosci: 7 dni.",
             "attachments": ["FV-04-2026-182.pdf"],
+            "downloadedAttachments": [],
+            "downloadStatus": "czeka na synchronizacje",
+            "gmailLabel": "Agent/do-pobrania",
         },
         {
             "id": "msg-1002",
@@ -65,6 +68,9 @@ DEFAULT_STATE = {
             "needsReply": True,
             "summary": "Klient pyta o wolny termin i prosi o wstepna wycene prac.",
             "attachments": ["rzut-lokalu.pdf", "zdjecia.zip"],
+            "downloadedAttachments": [],
+            "downloadStatus": "brak reguly pobierania",
+            "gmailLabel": "Agent/do-odpowiedzi",
         },
         {
             "id": "msg-1003",
@@ -76,8 +82,12 @@ DEFAULT_STATE = {
             "needsReply": False,
             "summary": "Ksiegowa przesyla zestawienie i prosi o doslanie brakujacych kosztow paliwa.",
             "attachments": ["rozliczenie-tydzien-15.pdf"],
+            "downloadedAttachments": [],
+            "downloadStatus": "czeka na synchronizacje",
+            "gmailLabel": "Agent/do-pobrania",
         },
     ],
+    "downloads": [],
     "activity": [
         "Przygotowano reguly pobierania faktur i dokumentow.",
         "Wykryto 2 wiadomosci wymagajace uwagi w trybie demo.",
@@ -102,6 +112,12 @@ def ensure_state():
     DOWNLOADS_DIR.mkdir(exist_ok=True)
     if not STATE_PATH.exists():
         STATE_PATH.write_text(json.dumps(DEFAULT_STATE, indent=2), encoding="utf-8")
+        return
+
+    state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    changed = normalize_state(state)
+    if changed:
+        write_state(state)
 
 
 def read_state():
@@ -112,6 +128,31 @@ def read_state():
 def write_state(state):
     DATA_DIR.mkdir(exist_ok=True)
     STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def normalize_state(state):
+    changed = False
+    if "downloads" not in state:
+        state["downloads"] = []
+        changed = True
+    for message in state.get("messages", []):
+        if "downloadedAttachments" not in message:
+            message["downloadedAttachments"] = []
+            changed = True
+        if "downloadStatus" not in message:
+            message["downloadStatus"] = "czeka na synchronizacje"
+            changed = True
+        if "gmailLabel" not in message:
+            message["gmailLabel"] = "Agent/do-pobrania" if message.get("attachments") else "Agent/sprawdzone"
+            changed = True
+    for rule in state.get("rules", []):
+        if rule.get("id") == "rule-accounting":
+            expected = {"zus", "deklaracja", "podatek", "dokumenty", "rozliczenie"}
+            keywords = set(rule.get("keywords", []))
+            if not expected.issubset(keywords):
+                rule["keywords"] = sorted(keywords | expected)
+                changed = True
+    return changed
 
 
 def now_label():
@@ -152,8 +193,8 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
         if parsed_url.path == "/api/sync":
             state = read_state()
             state["connection"]["lastSync"] = now_label()
-            state["activity"].insert(0, "Synchronizacja demo: pobrano 3 wiadomosci i sprawdzono zalaczniki.")
-            materialize_demo_downloads(state)
+            saved_count = materialize_demo_downloads(state)
+            state["activity"].insert(0, f"Synchronizacja demo: pobrano {saved_count} pliki do wskazanych folderow.")
             write_state(state)
             self._send_json(build_dashboard(state), HTTPStatus.OK)
             return
@@ -221,6 +262,7 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
 
 def build_dashboard(state=None):
     state = state or read_state()
+    normalize_state(state)
     messages = state["messages"]
     return {
         **state,
@@ -228,12 +270,13 @@ def build_dashboard(state=None):
             "messagesToday": sum(1 for item in messages if item["receivedAt"].startswith("2026-04-12")),
             "needsReply": sum(1 for item in messages if item["needsReply"]),
             "attachments": sum(len(item["attachments"]) for item in messages),
+            "downloaded": len(state.get("downloads", [])),
             "rules": sum(1 for item in state["rules"] if item["enabled"]),
         },
         "report": {
             "daily": [
                 "Najwazniejsze: klient pyta o termin i wycene prac.",
-                "Do pobrania: faktura FV/04/2026/182 oraz dokumenty ksiegowe.",
+                "Automat pobiera faktury i dokumenty od nadawcow z aktywnych regul.",
                 "Ryzyko: wiadomosc ze zdjeciami ZIP wymaga recznego sprawdzenia przed otwarciem.",
             ],
             "weekly": [
@@ -246,14 +289,107 @@ def build_dashboard(state=None):
 
 
 def materialize_demo_downloads(state):
-    for rule in state["rules"]:
-        (ROOT / rule["folder"]).mkdir(parents=True, exist_ok=True)
+    saved_count = 0
+    state.setdefault("downloads", [])
+    known_downloads = {item.get("path") for item in state["downloads"]}
     for message in state["messages"]:
+        rule = find_matching_rule(message, state["rules"])
+        if not rule:
+            if message.get("attachments"):
+                message["downloadStatus"] = "brak pasujacej reguly"
+            continue
+
+        folder = resolve_download_folder(rule["folder"])
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            message["downloadStatus"] = f"nie udalo sie utworzyc folderu: {folder}"
+            message["gmailLabel"] = "Agent/blad-pobierania"
+            state["activity"].insert(0, f"Blad folderu {folder}: {error}.")
+            continue
+        downloaded = []
+        new_downloaded = []
+        skipped = []
+
         for attachment in message["attachments"]:
-            if attachment.lower().endswith((".pdf", ".xml")):
-                target = DOWNLOADS_DIR / attachment
-                if not target.exists():
-                    target.write_text(f"Demo placeholder for {attachment}\nSource: {message['from']}\n", encoding="utf-8")
+            if not is_auto_downloadable(attachment):
+                skipped.append(attachment)
+                continue
+
+            target = folder / attachment
+            try:
+                target.write_text(
+                    "\n".join(
+                        [
+                            f"Demo placeholder for {attachment}",
+                            f"Source: {message['from']}",
+                            f"Message: {message['subject']}",
+                            f"Saved at: {now_label()}",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+            except OSError as error:
+                skipped.append(f"{attachment} ({error})")
+                continue
+            downloaded.append({"name": attachment, "path": str(target)})
+
+            if str(target) not in known_downloads:
+                saved_count += 1
+                known_downloads.add(str(target))
+                new_downloaded.append(attachment)
+                state["downloads"].insert(
+                    0,
+                    {
+                        "file": attachment,
+                        "path": str(target),
+                        "sender": message["from"],
+                        "subject": message["subject"],
+                        "rule": rule["name"],
+                        "downloadedAt": now_label(),
+                        "status": "pobrano",
+                    },
+                )
+
+        message["downloadedAttachments"] = downloaded
+        if downloaded:
+            message["downloadStatus"] = f"pobrano {len(downloaded)} plikow do {folder}"
+            message["gmailLabel"] = f"Agent/pobrane/{rule['label']}"
+            if new_downloaded:
+                state["activity"].insert(0, f"Pobrano {len(new_downloaded)} plikow z wiadomosci od {message['from']} do {folder}.")
+        elif skipped:
+            message["downloadStatus"] = f"pominieto: {', '.join(skipped)}"
+            message["gmailLabel"] = "Agent/do-sprawdzenia"
+
+    state["downloads"] = state["downloads"][:30]
+    return saved_count
+
+
+def resolve_download_folder(folder):
+    candidate = Path(folder)
+    if candidate.is_absolute():
+        return candidate
+    return ROOT / folder
+
+
+def is_auto_downloadable(filename):
+    return filename.lower().endswith((".pdf", ".xml", ".doc", ".docx", ".xls", ".xlsx"))
+
+
+def find_matching_rule(message, rules):
+    haystack = " ".join([message.get("subject", ""), message.get("summary", ""), " ".join(message.get("attachments", []))]).lower()
+    sender = message.get("from", "").lower()
+    for rule in rules:
+        if not rule.get("enabled"):
+            continue
+        rule_sender = rule.get("sender", "").lower()
+        if rule_sender and rule_sender != sender:
+            continue
+        keywords = [keyword.lower() for keyword in rule.get("keywords", [])]
+        if keywords and not any(keyword in haystack for keyword in keywords):
+            continue
+        return rule
+    return None
 
 
 def build_demo_draft(message_id):

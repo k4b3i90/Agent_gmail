@@ -58,7 +58,7 @@
         <article><span>Maile dzisiaj</span><strong id="messagesToday">0</strong></article>
         <article><span>Do odpowiedzi</span><strong id="needsReply">0</strong></article>
         <article><span>Zalaczniki</span><strong id="attachments">0</strong></article>
-        <article><span>Aktywne reguly</span><strong id="rulesCount">0</strong></article>
+        <article><span>Pobrane pliki</span><strong id="downloadedCount">0</strong></article>
       </section>
 
       <section class="grid two-columns" id="raport">
@@ -121,6 +121,14 @@
           <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
           <button class="primary" type="submit">Dodaj regule</button>
         </form>
+      </section>
+
+      <section class="panel downloads-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">Potwierdzenia</p>
+          <h2>Pobrane dokumenty</h2>
+        </div>
+        <div class="downloads" id="downloads"></div>
       </section>
 
       <section class="panel activity-panel">
