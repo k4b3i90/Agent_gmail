@@ -1,0 +1,154 @@
+const state = { dashboard: null };
+
+const elements = {
+  connectionStatus: document.querySelector("#connectionStatus"),
+  accountName: document.querySelector("#accountName"),
+  lastSync: document.querySelector("#lastSync"),
+  messagesToday: document.querySelector("#messagesToday"),
+  needsReply: document.querySelector("#needsReply"),
+  attachments: document.querySelector("#attachments"),
+  rulesCount: document.querySelector("#rulesCount"),
+  dailyReport: document.querySelector("#dailyReport"),
+  weeklyReport: document.querySelector("#weeklyReport"),
+  messages: document.querySelector("#messages"),
+  rules: document.querySelector("#rules"),
+  activity: document.querySelector("#activity"),
+  draftBox: document.querySelector("#draftBox"),
+  toast: document.querySelector("#toast"),
+  syncButton: document.querySelector("#syncButton"),
+  connectButton: document.querySelector("#connectButton"),
+  ruleForm: document.querySelector("#ruleForm"),
+};
+
+function showToast(message) {
+  elements.toast.textContent = message;
+  elements.toast.classList.add("visible");
+  window.clearTimeout(showToast.timeoutId);
+  showToast.timeoutId = window.setTimeout(() => {
+    elements.toast.classList.remove("visible");
+  }, 2800);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "Nie udalo sie wykonac akcji.");
+  return payload;
+}
+
+function createElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text) element.textContent = text;
+  return element;
+}
+
+function renderList(container, items, renderItem) {
+  container.innerHTML = "";
+  items.forEach((item) => container.append(renderItem(item)));
+}
+
+function renderDashboard(payload) {
+  state.dashboard = payload;
+  elements.connectionStatus.textContent = payload.connection.status === "demo" ? "Tryb demo" : "Polaczono";
+  elements.accountName.textContent = payload.connection.account;
+  elements.lastSync.textContent = payload.connection.lastSync || "jeszcze nie uruchomiono";
+  elements.messagesToday.textContent = payload.stats.messagesToday;
+  elements.needsReply.textContent = payload.stats.needsReply;
+  elements.attachments.textContent = payload.stats.attachments;
+  elements.rulesCount.textContent = payload.stats.rules;
+
+  renderList(elements.dailyReport, payload.report.daily, (item) => createElement("li", "", item));
+  renderList(elements.weeklyReport, payload.report.weekly, (item) => createElement("li", "", item));
+  renderList(elements.messages, payload.messages, renderMessage);
+  renderList(elements.rules, payload.rules, renderRule);
+  renderList(elements.activity, payload.activity.slice(0, 8), (item) => createElement("li", "", item));
+}
+
+function renderMessage(message) {
+  const card = createElement("article", "message");
+  const head = createElement("div", "message-head");
+  const titleWrap = createElement("div");
+  titleWrap.append(createElement("h3", "", message.subject));
+  titleWrap.append(createElement("span", "message-meta", `${message.from} · ${message.receivedAt}`));
+  head.append(titleWrap);
+  head.append(createElement("span", `tag ${message.priority === "wysoki" ? "priority" : ""}`, message.priority));
+
+  const summary = createElement("p", "", message.summary);
+  const tags = createElement("div", "tags");
+  tags.append(createElement("span", "tag", message.category));
+  if (message.needsReply) tags.append(createElement("span", "tag", "wymaga odpowiedzi"));
+  message.attachments.forEach((attachment) => tags.append(createElement("span", "tag", attachment)));
+
+  const actions = createElement("div", "message-actions");
+  const draftButton = createElement("button", "secondary", "Napisz szkic");
+  draftButton.type = "button";
+  draftButton.addEventListener("click", () => loadDraft(message.id));
+  actions.append(draftButton);
+
+  card.append(head, summary, tags, actions);
+  return card;
+}
+
+function renderRule(rule) {
+  const card = createElement("article", "rule");
+  const head = createElement("div", "rule-head");
+  const titleWrap = createElement("div");
+  titleWrap.append(createElement("h3", "", rule.name));
+  titleWrap.append(createElement("span", "rule-meta", rule.sender));
+  head.append(titleWrap);
+  head.append(createElement("span", "pill", rule.label));
+  card.append(head);
+  card.append(createElement("p", "rule-meta", `Folder: ${rule.folder}`));
+  card.append(createElement("p", "rule-meta", `Slowa: ${rule.keywords.join(", ") || "brak"}`));
+  return card;
+}
+
+async function loadDashboard() {
+  renderDashboard(await api("/api/dashboard"));
+}
+
+async function syncDemo() {
+  elements.syncButton.disabled = true;
+  elements.syncButton.textContent = "Synchronizuje...";
+  try {
+    renderDashboard(await api("/api/sync", { method: "POST", body: "{}" }));
+    showToast("Synchronizacja demo zakonczona. Pliki testowe trafily do downloads.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    elements.syncButton.disabled = false;
+    elements.syncButton.textContent = "Uruchom synchronizacje demo";
+  }
+}
+
+async function loadDraft(messageId) {
+  elements.draftBox.textContent = "Pisze szkic...";
+  try {
+    const payload = await api("/api/draft", { method: "POST", body: JSON.stringify({ messageId }) });
+    elements.draftBox.textContent = payload.draft;
+  } catch (error) {
+    elements.draftBox.textContent = error.message;
+  }
+}
+
+async function addRule(event) {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(elements.ruleForm).entries());
+  try {
+    renderDashboard(await api("/api/rules", { method: "POST", body: JSON.stringify(payload) }));
+    elements.ruleForm.reset();
+    showToast("Regula dodana.");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+elements.syncButton.addEventListener("click", syncDemo);
+elements.connectButton.addEventListener("click", () => showToast("Nastepny krok: konfiguracja Google OAuth i zgody Gmail API."));
+elements.ruleForm.addEventListener("submit", addRule);
+
+loadDashboard().catch((error) => showToast(error.message));

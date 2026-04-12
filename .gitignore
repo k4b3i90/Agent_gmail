@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+data/local_state.json
+downloads/
+tokens/

@@ -1,0 +1,6 @@
+# Pierwszy prototyp dziala bez zewnetrznych paczek.
+# Przy podpinaniu realnego Gmail API dodamy:
+# google-api-python-client
+# google-auth
+# google-auth-oauthlib
+# openai

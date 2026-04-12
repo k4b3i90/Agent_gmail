@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Gmail</title>
+    <meta
+      name="description"
+      content="Lokalny panel asystenta Gmail do raportow, regul pobierania dokumentow i kontroli wiadomosci wymagajacych odpowiedzi."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Agent Gmail">
+        <span class="brand-mark">AG</span>
+        <span>
+          <strong>Agent Gmail</strong>
+          <small>poczta, faktury, odpowiedzi</small>
+        </span>
+      </a>
+      <nav class="nav" aria-label="Nawigacja">
+        <a href="#raport">Raport</a>
+        <a href="#wiadomosci">Wiadomosci</a>
+        <a href="#reguly">Reguly</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="workspace" aria-labelledby="main-title">
+        <div class="intro">
+          <p class="eyebrow">Tryb demo, gotowy pod Gmail API</p>
+          <h1 id="main-title">Twoja poczta zebrana w jeden poranny przeglad.</h1>
+          <p>
+            Agent wykrywa faktury, dokumenty i wiadomosci do odpowiedzi. Na start
+            dziala lokalnie na danych demo, bez dotykania prawdziwego Gmaila.
+          </p>
+          <div class="actions">
+            <button class="primary" id="syncButton" type="button">Uruchom synchronizacje demo</button>
+            <button class="secondary" id="connectButton" type="button">Przygotuj polaczenie Gmail</button>
+          </div>
+        </div>
+
+        <aside class="status-panel" aria-label="Status konta">
+          <div>
+            <span class="status-dot"></span>
+            <strong id="connectionStatus">Tryb demo</strong>
+            <small id="accountName">konto testowe</small>
+          </div>
+          <div class="last-sync">
+            <span>Ostatnia synchronizacja</span>
+            <strong id="lastSync">jeszcze nie uruchomiono</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section class="stats" aria-label="Podsumowanie">
+        <article><span>Maile dzisiaj</span><strong id="messagesToday">0</strong></article>
+        <article><span>Do odpowiedzi</span><strong id="needsReply">0</strong></article>
+        <article><span>Zalaczniki</span><strong id="attachments">0</strong></article>
+        <article><span>Aktywne reguly</span><strong id="rulesCount">0</strong></article>
+      </section>
+
+      <section class="grid two-columns" id="raport">
+        <article class="panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Dzisiaj</p>
+            <h2>Na co zwrocic uwage</h2>
+          </div>
+          <ul class="report-list" id="dailyReport"></ul>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Tydzien</p>
+            <h2>Raport tygodniowy</h2>
+          </div>
+          <ul class="report-list" id="weeklyReport"></ul>
+        </article>
+      </section>
+
+      <section class="grid main-grid">
+        <article class="panel messages-panel" id="wiadomosci">
+          <div class="panel-heading inline">
+            <div>
+              <p class="eyebrow">Inbox</p>
+              <h2>Wiadomosci wymagajace decyzji</h2>
+            </div>
+            <span class="pill">AI draft: demo</span>
+          </div>
+          <div class="messages" id="messages"></div>
+        </article>
+
+        <aside class="panel draft-panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Propozycja odpowiedzi</p>
+            <h2>Szkic AI</h2>
+          </div>
+          <pre id="draftBox">Wybierz wiadomosc i kliknij "Napisz szkic".</pre>
+        </aside>
+      </section>
+
+      <section class="grid main-grid" id="reguly">
+        <article class="panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Automatyzacja</p>
+            <h2>Reguly pobierania plikow</h2>
+          </div>
+          <div class="rules" id="rules"></div>
+        </article>
+
+        <form class="panel rule-form" id="ruleForm">
+          <div class="panel-heading">
+            <p class="eyebrow">Nowa regula</p>
+            <h2>Dodaj nadawce</h2>
+          </div>
+          <label>Nazwa <input name="name" placeholder="Faktury od klienta" required /></label>
+          <label>Nadawca <input name="sender" type="email" placeholder="faktury@example.pl" required /></label>
+          <label>Slowa kluczowe <input name="keywords" placeholder="faktura, pdf, vat" /></label>
+          <label>Folder docelowy <input name="folder" placeholder="downloads/faktury/klient" required /></label>
+          <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
+          <button class="primary" type="submit">Dodaj regule</button>
+        </form>
+      </section>
+
+      <section class="panel activity-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">Dziennik</p>
+          <h2>Co agent zrobil</h2>
+        </div>
+        <ol id="activity"></ol>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
