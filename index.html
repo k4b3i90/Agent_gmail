@@ -62,129 +62,121 @@
         <article><span>Pobrane pliki</span><strong id="downloadedCount">0</strong></article>
       </section>
 
-      <section class="grid two-columns collapsible-section is-open" id="raport">
-        <article class="panel">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>
+      <section class="collapsible-section is-open" id="raport">
+        <button class="section-toggle" type="button" aria-expanded="true">
+          <span>
+            <p class="eyebrow">Raporty</p>
+            <h2>Na co zwrocic uwage</h2>
+          </span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content grid two-columns">
+          <article class="panel">
+            <div class="panel-heading">
               <p class="eyebrow">Dzisiaj</p>
-              <h2>Na co zwrocic uwage</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+              <h2>Przeglad dnia</h2>
+            </div>
             <ul class="report-list" id="dailyReport"></ul>
-          </div>
-        </article>
+          </article>
 
-        <article class="panel">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>
+          <article class="panel">
+            <div class="panel-heading">
               <p class="eyebrow">Tydzien</p>
               <h2>Raport tygodniowy</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+            </div>
             <ul class="report-list" id="weeklyReport"></ul>
-          </div>
-        </article>
+          </article>
+        </div>
       </section>
 
-      <section class="grid main-grid collapsible-section is-open">
-        <article class="panel messages-panel" id="wiadomosci">
-          <button class="section-toggle inline" type="button" aria-expanded="true">
-            <span>
-              <p class="eyebrow">Inbox</p>
-              <h2>Wiadomosci wymagajace decyzji</h2>
-            </span>
-            <span class="pill">AI draft: demo</span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+      <section class="collapsible-section is-open" id="wiadomosci">
+        <button class="section-toggle inline" type="button" aria-expanded="true">
+          <span>
+            <p class="eyebrow">Inbox</p>
+            <h2>Wiadomosci wymagajace decyzji</h2>
+          </span>
+          <span class="pill">AI draft: demo</span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content grid main-grid">
+          <article class="panel messages-panel">
             <div class="messages" id="messages"></div>
-          </div>
-        </article>
+          </article>
 
-        <aside class="panel draft-panel">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>
+          <aside class="panel draft-panel">
+            <div class="panel-heading">
               <p class="eyebrow">Propozycja odpowiedzi</p>
               <h2>Szkic AI</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+            </div>
             <pre id="draftBox">Wybierz wiadomosc i kliknij "Napisz szkic".</pre>
-          </div>
-        </aside>
+          </aside>
+        </div>
       </section>
 
-      <section class="grid main-grid collapsible-section" id="reguly">
-        <article class="panel">
-          <button class="section-toggle" type="button" aria-expanded="false">
-            <span>
-              <p class="eyebrow">Automatyzacja</p>
-              <h2>Reguly pobierania plikow</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+      <section class="collapsible-section" id="reguly">
+        <button class="section-toggle" type="button" aria-expanded="false">
+          <span>
+            <p class="eyebrow">Automatyzacja</p>
+            <h2>Reguly pobierania plikow</h2>
+          </span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content grid main-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <p class="eyebrow">Aktywne reguly</p>
+              <h2>Nadawcy i foldery</h2>
+            </div>
             <div class="rules" id="rules"></div>
-          </div>
-        </article>
+          </article>
 
-        <form class="panel rule-form" id="ruleForm">
-          <button class="section-toggle" type="button" aria-expanded="false">
-            <span>
+          <form class="panel rule-form" id="ruleForm">
+            <div class="panel-heading">
               <p class="eyebrow">Nowa regula</p>
               <h2>Dodaj nadawce</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+            </div>
             <label>Nazwa <input name="name" placeholder="Faktury od klienta" required /></label>
             <label>Nadawca <input name="sender" type="email" placeholder="faktury@example.pl" required /></label>
             <label>Slowa kluczowe <input name="keywords" placeholder="faktura, pdf, vat" /></label>
             <label>Folder docelowy <input name="folder" placeholder="downloads/faktury/klient" required /></label>
             <label>Etykieta <input name="label" placeholder="Faktury" required /></label>
             <button class="primary" type="submit">Dodaj regule</button>
-          </div>
-        </form>
+          </form>
+        </div>
       </section>
 
-      <section class="grid main-grid collapsible-section" id="wazni">
-        <article class="panel">
-          <button class="section-toggle" type="button" aria-expanded="false">
-            <span>
-              <p class="eyebrow">Priorytety</p>
-              <h2>Wazni nadawcy</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+      <section class="collapsible-section" id="wazni">
+        <button class="section-toggle" type="button" aria-expanded="false">
+          <span>
+            <p class="eyebrow">Priorytety</p>
+            <h2>Wazni nadawcy</h2>
+          </span>
+          <span class="toggle-icon" aria-hidden="true">v</span>
+        </button>
+        <div class="section-content grid main-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <p class="eyebrow">Lista</p>
+              <h2>Adresy do uwagi</h2>
+            </div>
             <div class="important-senders" id="importantSenders"></div>
-          </div>
-        </article>
+          </article>
 
-        <form class="panel rule-form" id="importantSenderForm">
-          <button class="section-toggle" type="button" aria-expanded="false">
-            <span>
+          <form class="panel rule-form" id="importantSenderForm">
+            <div class="panel-heading">
               <p class="eyebrow">Nowy priorytet</p>
               <h2>Dodaj adres do uwagi</h2>
-            </span>
-            <span class="toggle-icon" aria-hidden="true">v</span>
-          </button>
-          <div class="section-content">
+            </div>
             <label>Nazwa <input name="name" placeholder="Klient VIP" required /></label>
             <label>Adres e-mail <input name="email" type="email" placeholder="klient@example.pl" required /></label>
             <label>Powod <input name="reason" placeholder="Terminy, oferty, pilne tematy" /></label>
             <label>Etykieta Gmail <input name="label" placeholder="Agent/wazne/klienci" /></label>
             <button class="primary" type="submit">Dodaj waznego nadawce</button>
-          </div>
-        </form>
+          </form>
+        </div>
       </section>
 
-      <section class="panel downloads-panel collapsible-section">
+      <section class="collapsible-section downloads-panel">
         <button class="section-toggle" type="button" aria-expanded="false">
           <span>
             <p class="eyebrow">Potwierdzenia</p>
@@ -193,11 +185,13 @@
           <span class="toggle-icon" aria-hidden="true">v</span>
         </button>
         <div class="section-content">
-          <div class="downloads" id="downloads"></div>
+          <article class="panel">
+            <div class="downloads" id="downloads"></div>
+          </article>
         </div>
       </section>
 
-      <section class="panel activity-panel collapsible-section">
+      <section class="collapsible-section activity-panel">
         <button class="section-toggle" type="button" aria-expanded="false">
           <span>
             <p class="eyebrow">Dziennik</p>
@@ -206,7 +200,9 @@
           <span class="toggle-icon" aria-hidden="true">v</span>
         </button>
         <div class="section-content">
-          <ol id="activity"></ol>
+          <article class="panel">
+            <ol id="activity"></ol>
+          </article>
         </div>
       </section>
     </main>

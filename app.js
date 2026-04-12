@@ -28,17 +28,17 @@ const elements = {
 
 function initCollapsibleSections() {
   document.querySelectorAll(".section-toggle").forEach((toggle) => {
-    const panel = toggle.closest(".panel");
-    if (!panel) return;
+    const section = toggle.closest(".collapsible-section");
+    if (!section) return;
 
     const isOpen = toggle.getAttribute("aria-expanded") === "true";
-    panel.classList.toggle("is-open", isOpen);
-    panel.classList.toggle("is-collapsed", !isOpen);
+    section.classList.toggle("is-open", isOpen);
+    section.classList.toggle("is-collapsed", !isOpen);
 
     toggle.addEventListener("click", () => {
-      const nextState = !panel.classList.contains("is-open");
-      panel.classList.toggle("is-open", nextState);
-      panel.classList.toggle("is-collapsed", !nextState);
+      const nextState = !section.classList.contains("is-open");
+      section.classList.toggle("is-open", nextState);
+      section.classList.toggle("is-collapsed", !nextState);
       toggle.setAttribute("aria-expanded", String(nextState));
     });
   });

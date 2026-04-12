@@ -271,6 +271,10 @@ button {
   gap: 14px;
 }
 
+.collapsible-section {
+  margin-top: 18px;
+}
+
 .section-toggle {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;
@@ -279,12 +283,13 @@ button {
   width: 100%;
   min-height: 0;
   margin: 0;
-  padding: 0 0 18px;
-  border: 0;
-  border-radius: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   color: inherit;
   text-align: left;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow);
 }
 
 .section-toggle.inline {
@@ -313,17 +318,17 @@ button {
   transition: transform 160ms ease, background 160ms ease;
 }
 
-.panel.is-open > .section-toggle .toggle-icon {
+.collapsible-section.is-open > .section-toggle .toggle-icon {
   transform: rotate(180deg);
   background: var(--surface-strong);
 }
 
-.panel.is-collapsed > .section-content {
+.collapsible-section.is-collapsed > .section-content {
   display: none;
 }
 
-.panel.is-collapsed > .section-toggle {
-  padding-bottom: 0;
+.collapsible-section.is-open > .section-toggle {
+  margin-bottom: 0;
 }
 
 .pill {
