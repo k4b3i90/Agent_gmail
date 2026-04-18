@@ -2,6 +2,7 @@ import json
 import mimetypes
 import os
 import base64
+import html
 from datetime import datetime
 from email.utils import parseaddr
 from http import HTTPStatus
@@ -381,15 +382,29 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
             self._send_html("<h1>Blad OAuth</h1><p>Brakuje kodu autoryzacji.</p>", HTTPStatus.BAD_REQUEST)
             return
 
-        flow = Flow.from_client_secrets_file(str(GMAIL_CLIENT_PATH), scopes=GMAIL_SCOPES, redirect_uri=GOOGLE_REDIRECT_URI)
-        flow.fetch_token(code=code)
-        credentials = flow.credentials
+        try:
+            flow = Flow.from_client_secrets_file(str(GMAIL_CLIENT_PATH), scopes=GMAIL_SCOPES, redirect_uri=GOOGLE_REDIRECT_URI)
+            flow.fetch_token(code=code)
+            credentials = flow.credentials
 
-        TOKENS_DIR.mkdir(exist_ok=True)
-        GMAIL_TOKEN_PATH.write_text(credentials.to_json(), encoding="utf-8")
+            TOKENS_DIR.mkdir(exist_ok=True)
+            GMAIL_TOKEN_PATH.write_text(credentials.to_json(), encoding="utf-8")
 
-        service = build_gmail_service(credentials)
-        profile = service.users().getProfile(userId="me").execute()
+            service = build_gmail_service(credentials)
+            profile = service.users().getProfile(userId="me").execute()
+        except Exception as error:
+            safe_error = html.escape(str(error))
+            self._send_html(
+                (
+                    "<h1>Nie udalo sie polaczyc Gmaila</h1>"
+                    "<p>Google wrocilo do aplikacji, ale token nie zostal zapisany.</p>"
+                    f"<pre>{safe_error}</pre>"
+                    "<p>Najczestsza przyczyna: zly URI przekierowania albo aplikacja/test user w Google Cloud.</p>"
+                    "<p>Wroc do aplikacji i sprobuj polaczyc Gmail ponownie.</p>"
+                ),
+                HTTPStatus.BAD_REQUEST,
+            )
+            return
 
         state = read_state()
         state["connection"] = {
