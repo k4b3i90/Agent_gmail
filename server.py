@@ -537,7 +537,7 @@ def sync_gmail_messages(state):
             userId="me",
             maxResults=25,
             labelIds=["INBOX"],
-            q="in:inbox newer_than:30d -in:drafts -in:sent",
+            q="in:inbox newer_than:30d -in:drafts -in:sent -in:spam -in:trash",
         )
         .execute()
     )
@@ -556,6 +556,8 @@ def sync_gmail_messages(state):
 
     for message_ref in message_refs:
         raw_message = service.users().messages().get(userId="me", id=message_ref["id"], format="full").execute()
+        if should_skip_gmail_message(raw_message):
+            continue
         message = build_message_from_gmail(raw_message)
         attachments = collect_gmail_attachments(raw_message.get("payload", {}))
         message["attachments"] = [attachment["filename"] for attachment in attachments]
@@ -618,6 +620,12 @@ def build_message_from_gmail(raw_message):
         "attentionReason": "",
         "replyStatus": "brak odpowiedzi",
     }
+
+
+def should_skip_gmail_message(raw_message):
+    blocked_labels = {"SPAM", "TRASH", "DRAFT", "SENT"}
+    labels = set(raw_message.get("labelIds", []) or [])
+    return bool(labels & blocked_labels)
 
 
 def gmail_internal_date(value):
