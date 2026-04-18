@@ -26,6 +26,14 @@ Nastepnie otworz:
 http://127.0.0.1:4188
 ```
 
+Na Windows mozesz tez uruchomic aplikacje dwuklikiem:
+
+```text
+start_agent_gmail.bat
+```
+
+Launcher uruchamia lokalny serwer i otwiera panel w osobnym oknie przegladarki w trybie aplikacji.
+
 ## Nastepny etap
 
 1. Utworzyc projekt w Google Cloud.
