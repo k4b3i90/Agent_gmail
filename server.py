@@ -18,102 +18,14 @@ PORT = int(os.getenv("PORT", "4188"))
 
 DEFAULT_STATE = {
     "connection": {
-        "status": "demo",
-        "account": "p.p.profinish@gmail.com",
+        "status": "disconnected",
+        "account": "",
         "lastSync": None,
-        "scopes": ["gmail.readonly", "gmail.modify"],
+        "scopes": [],
     },
-    "rules": [
-        {
-            "id": "rule-invoices",
-            "name": "Faktury od dostawcow",
-            "sender": "faktury@hurtownia.pl",
-            "keywords": ["faktura", "vat", "pdf"],
-            "folder": "downloads/faktury/hurtownia",
-            "label": "Faktury",
-            "enabled": True,
-        },
-        {
-            "id": "rule-accounting",
-            "name": "Dokumenty od ksiegowej",
-            "sender": "biuro@ksiegowosc.pl",
-            "keywords": ["zus", "deklaracja", "podatek", "dokumenty", "rozliczenie"],
-            "folder": "downloads/ksiegowosc",
-            "label": "Ksiegowosc",
-            "enabled": True,
-        },
-    ],
-    "importantSenders": [
-        {
-            "id": "sender-client",
-            "email": "klient@firma-example.pl",
-            "name": "Staly klient",
-            "reason": "Zapytania ofertowe i terminy realizacji",
-            "label": "Agent/wazne",
-            "enabled": True,
-        },
-        {
-            "id": "sender-accounting",
-            "email": "biuro@ksiegowosc.pl",
-            "name": "Ksiegowa",
-            "reason": "Rozliczenia, podatki i dokumenty terminowe",
-            "label": "Agent/wazne/ksiegowosc",
-            "enabled": True,
-        },
-    ],
-    "messages": [
-        {
-            "id": "msg-1001",
-            "from": "faktury@hurtownia.pl",
-            "subject": "Faktura VAT FV/04/2026/182",
-            "receivedAt": "2026-04-12 08:42",
-            "category": "Faktury",
-            "priority": "wysoki",
-            "needsReply": False,
-            "summary": "Nowa faktura za materialy budowlane. Termin platnosci: 7 dni.",
-            "attachments": ["FV-04-2026-182.pdf"],
-            "downloadedAttachments": [],
-            "downloadStatus": "czeka na synchronizacje",
-            "gmailLabel": "Agent/do-pobrania",
-            "attention": False,
-            "attentionReason": "",
-            "replyStatus": "brak odpowiedzi",
-        },
-        {
-            "id": "msg-1002",
-            "from": "klient@firma-example.pl",
-            "subject": "Prosba o termin wykonczenia lokalu",
-            "receivedAt": "2026-04-12 10:15",
-            "category": "Do odpowiedzi",
-            "priority": "wysoki",
-            "needsReply": True,
-            "summary": "Klient pyta o wolny termin i prosi o wstepna wycene prac.",
-            "attachments": ["rzut-lokalu.pdf", "zdjecia.zip"],
-            "downloadedAttachments": [],
-            "downloadStatus": "brak reguly pobierania",
-            "gmailLabel": "Agent/do-odpowiedzi",
-            "attention": True,
-            "attentionReason": "Wazny nadawca: Staly klient",
-            "replyStatus": "czeka na odpowiedz",
-        },
-        {
-            "id": "msg-1003",
-            "from": "biuro@ksiegowosc.pl",
-            "subject": "Dokumenty do rozliczenia tygodnia",
-            "receivedAt": "2026-04-11 16:30",
-            "category": "Ksiegowosc",
-            "priority": "sredni",
-            "needsReply": False,
-            "summary": "Ksiegowa przesyla zestawienie i prosi o doslanie brakujacych kosztow paliwa.",
-            "attachments": ["rozliczenie-tydzien-15.pdf"],
-            "downloadedAttachments": [],
-            "downloadStatus": "czeka na synchronizacje",
-            "gmailLabel": "Agent/do-pobrania",
-            "attention": True,
-            "attentionReason": "Wazny nadawca: Ksiegowa",
-            "replyStatus": "brak odpowiedzi",
-        },
-    ],
+    "rules": [],
+    "importantSenders": [],
+    "messages": [],
     "downloads": [],
     "sentReplies": [],
     "dailyUpdate": {
@@ -125,10 +37,7 @@ DEFAULT_STATE = {
             "Odswiezenie priorytetow i raportu dnia",
         ],
     },
-    "activity": [
-        "Przygotowano reguly pobierania faktur i dokumentow.",
-        "Wykryto 2 wiadomosci wymagajace uwagi w trybie demo.",
-    ],
+    "activity": [],
 }
 
 
@@ -179,7 +88,7 @@ def normalize_state(state):
         state["dailyUpdate"] = DEFAULT_STATE["dailyUpdate"]
         changed = True
     if "importantSenders" not in state:
-        state["importantSenders"] = DEFAULT_STATE["importantSenders"]
+        state["importantSenders"] = []
         changed = True
     for message in state.get("messages", []):
         if "downloadedAttachments" not in message:
@@ -394,10 +303,11 @@ def build_dashboard(state=None):
     normalize_state(state)
     apply_important_senders(state)
     messages = state["messages"]
+    today = datetime.now().strftime("%Y-%m-%d")
     return {
         **state,
         "stats": {
-            "messagesToday": sum(1 for item in messages if item["receivedAt"].startswith("2026-04-12")),
+            "messagesToday": sum(1 for item in messages if item.get("receivedAt", "").startswith(today)),
             "needsReply": sum(1 for item in messages if item["needsReply"]),
             "attachments": sum(len(item["attachments"]) for item in messages),
             "attention": sum(1 for item in messages if item.get("attention")),
@@ -406,14 +316,10 @@ def build_dashboard(state=None):
         },
         "report": {
             "daily": [
-                "Najwazniejsze: klient pyta o termin i wycene prac.",
-                "Automat pobiera faktury i dokumenty od nadawcow z aktywnych regul.",
-                "Ryzyko: wiadomosc ze zdjeciami ZIP wymaga recznego sprawdzenia przed otwarciem.",
+                "Brak danych z Gmaila. Polacz konto i uruchom synchronizacje.",
             ],
             "weekly": [
-                "W tym tygodniu dominowaly faktury, rozliczenia i zapytania ofertowe.",
-                "Najczesciej powtarzajacy sie temat: dosylanie dokumentow do ksiegowosci.",
-                "Rekomendacja: dodac regule dla stalego klienta i osobny folder na rzuty lokali.",
+                "Brak danych tygodniowych. Raport powstanie po synchronizacji z Gmail.",
             ],
         },
     }

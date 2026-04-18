@@ -90,8 +90,13 @@ function renderList(container, items, renderItem) {
 
 function renderDashboard(payload) {
   state.dashboard = payload;
-  elements.connectionStatus.textContent = payload.connection.status === "demo" ? "Tryb demo" : "Polaczono";
-  elements.accountName.textContent = payload.connection.account;
+  const connectionLabels = {
+    demo: "Tryb demo",
+    connected: "Polaczono",
+    disconnected: "Brak polaczenia Gmail",
+  };
+  elements.connectionStatus.textContent = connectionLabels[payload.connection.status] || payload.connection.status;
+  elements.accountName.textContent = payload.connection.account || "konto niepodlaczone";
   elements.lastSync.textContent = payload.connection.lastSync || "jeszcze nie uruchomiono";
   elements.messagesToday.textContent = payload.stats.messagesToday;
   elements.needsReply.textContent = payload.stats.needsReply;
@@ -361,7 +366,7 @@ async function syncDemo() {
   elements.syncButton.textContent = "Synchronizuje...";
   try {
     renderDashboard(await api("/api/sync", { method: "POST", body: "{}" }));
-    showToast("Synchronizacja zakonczona. Dokumenty zapisano w folderach z regul.");
+    showToast("Synchronizacja zakonczona.");
   } catch (error) {
     showToast(error.message);
   } finally {
