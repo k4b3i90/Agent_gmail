@@ -176,6 +176,10 @@ h2 {
   margin-top: 10px;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 button {
   min-height: 44px;
   border: 0;

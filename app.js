@@ -32,6 +32,9 @@ const elements = {
   toast: document.querySelector("#toast"),
   messageModal: document.querySelector("#messageModal"),
   modalContent: document.querySelector("#modalContent"),
+  heroMode: document.querySelector("#heroMode"),
+  heroCopy: document.querySelector("#heroCopy"),
+  inboxModePill: document.querySelector("#inboxModePill"),
   syncButton: document.querySelector("#syncButton"),
   connectButton: document.querySelector("#connectButton"),
   dailyUpdateButton: document.querySelector("#dailyUpdateButton"),
@@ -98,6 +101,7 @@ function renderDashboard(payload) {
   elements.connectionStatus.textContent = connectionLabels[payload.connection.status] || payload.connection.status;
   elements.accountName.textContent = payload.connection.account || "konto niepodlaczone";
   elements.lastSync.textContent = payload.connection.lastSync || "jeszcze nie uruchomiono";
+  updateConnectionUi(payload.connection.status);
   elements.messagesToday.textContent = payload.stats.messagesToday;
   elements.needsReply.textContent = payload.stats.needsReply;
   elements.attentionCount.textContent = payload.stats.attention;
@@ -126,6 +130,21 @@ function renderDashboard(payload) {
   });
   renderList(elements.downloads, payload.downloads, renderDownload);
   renderList(elements.activity, payload.activity.slice(0, 8), (item) => createElement("li", "", item));
+}
+
+function updateConnectionUi(connectionStatus) {
+  const isConnected = connectionStatus === "connected";
+
+  elements.syncButton.classList.toggle("is-hidden", isConnected);
+  elements.syncButton.setAttribute("aria-hidden", String(isConnected));
+  elements.syncButton.disabled = isConnected;
+  elements.connectButton.textContent = isConnected ? "Polacz ponownie Gmail" : "Przygotuj polaczenie Gmail";
+
+  elements.heroMode.textContent = isConnected ? "Gmail API polaczony" : "Tryb demo, gotowy pod Gmail API";
+  elements.heroCopy.textContent = isConnected
+    ? "Agent pracuje na Twojej poczcie przychodzacej i pobiera dokumenty wedlug ustawionych regul."
+    : "Agent wykrywa faktury, dokumenty i wiadomosci do odpowiedzi. Na start dziala lokalnie na danych demo, bez dotykania prawdziwego Gmaila.";
+  elements.inboxModePill.textContent = isConnected ? "Gmail inbox" : "AI draft: demo";
 }
 
 function renderPagedList(container, items, currentPage, pageSize, renderItem, onPageChange) {
@@ -370,7 +389,7 @@ async function syncDemo() {
   } catch (error) {
     showToast(error.message);
   } finally {
-    elements.syncButton.disabled = false;
+    elements.syncButton.disabled = state.dashboard?.connection?.status === "connected";
     elements.syncButton.textContent = "Uruchom synchronizacje demo";
   }
 }
