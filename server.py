@@ -216,7 +216,17 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
             state = read_state()
             state["rules"].insert(0, rule)
             state["activity"].insert(0, f"Dodano regule: {rule['name']}.")
-            write_state(state)
+            if state.get("connection", {}).get("status") == "connected":
+                try:
+                    sync_gmail_messages(state)
+                    state = read_state()
+                    state["activity"].insert(0, f"Po dodaniu reguly przeskanowano Gmail: {rule['name']}.")
+                    write_state(state)
+                except Exception as error:
+                    state["activity"].insert(0, f"Dodano regule, ale automatyczna synchronizacja nie powiodla sie: {error}.")
+                    write_state(state)
+            else:
+                write_state(state)
             self._send_json(build_dashboard(state), HTTPStatus.CREATED)
             return
 
@@ -573,6 +583,8 @@ def sync_gmail_messages(state):
                 message["gmailLabel"] = f"Agent/pobrane/{rule['label']}"
             else:
                 message["downloadStatus"] = "brak bezpiecznych plikow do pobrania"
+        elif rule:
+            message["downloadStatus"] = f"regula pasuje: {rule['name']}, ale mail nie ma zalacznikow"
         elif attachments:
             message["downloadStatus"] = "brak pasujacej reguly"
         else:
