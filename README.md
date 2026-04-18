@@ -1,14 +1,14 @@
 # Agent Gmail
 
-Lokalny prototyp asystenta Gmail do porzadkowania poczty, pobierania faktur i przygotowywania raportow dziennych oraz tygodniowych.
+Lokalny asystent Gmail do porzadkowania poczty, pobierania faktur i przygotowywania raportow dziennych oraz tygodniowych.
 
 ## Co dziala teraz
 
 - panel webowy z podsumowaniem poczty,
-- raport dzienny i tygodniowy na danych demo,
+- raport dzienny i tygodniowy,
 - lista wiadomosci wymagajacych decyzji,
 - reguly pobierania zalacznikow od konkretnych nadawcow,
-- synchronizacja demo zapisujaca pasujace dokumenty do folderow z regul,
+- synchronizacja Gmail zapisujaca pasujace dokumenty do folderow z regul,
 - historia pobranych dokumentow z informacja o folderze docelowym,
 - status przy wiadomosci: pobrano, brak reguly albo do sprawdzenia,
 - lista waznych nadawcow, ktorzy automatycznie podbijaja wiadomosci do uwagi,
@@ -26,29 +26,36 @@ Nastepnie otworz:
 http://127.0.0.1:4188
 ```
 
-Na Windows mozesz tez uruchomic aplikacje dwuklikiem:
+Na Windows aplikacje mozesz uruchomic skrotem z pulpitu. Skrot odpala:
 
 ```text
-start_agent_gmail.bat
+start_agent_gmail.ps1
 ```
 
 Launcher uruchamia lokalny serwer i otwiera panel w osobnym oknie przegladarki w trybie aplikacji.
 
-## Nastepny etap
+## Gmail OAuth
 
-1. Utworzyc projekt w Google Cloud.
-2. Wlaczyc Gmail API.
-3. Skonfigurowac OAuth Consent Screen.
-4. Dodac OAuth Client ID dla aplikacji webowej.
-5. Uzupelnic `.env`.
-6. Zastapic demo endpoint `/api/sync` prawdziwym pobieraniem maili i zalacznikow.
-7. Dodac OpenAI API do klasyfikacji, streszczen i szkicow odpowiedzi.
+Plik OAuth z Google Cloud zapisz lokalnie tutaj:
+
+```text
+secrets/gmail_oauth_client.json
+```
+
+Folder `secrets/` nie trafia do Git. Aplikacja prosi na start tylko o zakres:
+
+```text
+https://www.googleapis.com/auth/gmail.readonly
+```
+
+Po kliknieciu przycisku polaczenia Gmail token uzytkownika zostanie zapisany lokalnie w `tokens/`, ktory takze nie trafia do Git.
 
 ## Bezpieczenstwo
 
 - AI proponuje odpowiedzi, ale ich samo nie wysyla.
 - Zalaczniki pobieramy tylko od zaufanych nadawcow.
 - ZIP i podejrzane rozszerzenia wymagaja recznego sprawdzenia.
+- Na start aplikacja ma tylko odczyt Gmaila przez `gmail.readonly`.
 - Tokeny OAuth trzymamy lokalnie w `tokens/`, poza repo.
 
 ## Jak beda dzialac faktury i dokumenty

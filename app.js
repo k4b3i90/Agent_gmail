@@ -455,7 +455,9 @@ async function addImportantSender(event) {
 }
 
 elements.syncButton.addEventListener("click", syncDemo);
-elements.connectButton.addEventListener("click", () => showToast("Nastepny krok: konfiguracja Google OAuth i zgody Gmail API."));
+elements.connectButton.addEventListener("click", () => {
+  window.location.href = "/auth/google/start";
+});
 elements.dailyUpdateButton.addEventListener("click", runDailyUpdate);
 elements.ruleForm.addEventListener("submit", addRule);
 elements.importantSenderForm.addEventListener("submit", addImportantSender);

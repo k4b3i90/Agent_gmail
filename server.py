@@ -1,19 +1,40 @@
 import json
 import mimetypes
 import os
+import base64
 from datetime import datetime
+from email.utils import parseaddr
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
+
+try:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import Flow
+    from googleapiclient.discovery import build
+except ImportError:
+    Request = None
+    Credentials = None
+    Flow = None
+    build = None
 
 
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 STATE_PATH = DATA_DIR / "local_state.json"
 DOWNLOADS_DIR = ROOT / "downloads"
+SECRETS_DIR = ROOT / "secrets"
+TOKENS_DIR = ROOT / "tokens"
+GMAIL_CLIENT_PATH = SECRETS_DIR / "gmail_oauth_client.json"
+GMAIL_TOKEN_PATH = TOKENS_DIR / "gmail_token.json"
+OAUTH_STATE_PATH = DATA_DIR / "oauth_state.json"
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "4188"))
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", f"http://127.0.0.1:{PORT}/auth/google/callback")
+GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
 
 DEFAULT_STATE = {
@@ -136,7 +157,15 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
             return
 
         if request_path == "/api/health":
-            self._send_json({"ok": True, "mode": "demo"}, HTTPStatus.OK)
+            self._send_json({"ok": True, "mode": "local"}, HTTPStatus.OK)
+            return
+
+        if request_path == "/auth/google/start":
+            self._start_google_auth()
+            return
+
+        if request_path == "/auth/google/callback":
+            self._finish_google_auth(parsed_url)
             return
 
         if request_path in {"/", ""}:
@@ -156,10 +185,15 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
 
         if parsed_url.path == "/api/sync":
             state = read_state()
-            state["connection"]["lastSync"] = now_label()
-            saved_count = materialize_demo_downloads(state)
-            state["activity"].insert(0, f"Synchronizacja demo: pobrano {saved_count} pliki do wskazanych folderow.")
-            write_state(state)
+            try:
+                sync_gmail_messages(state)
+                state = read_state()
+            except GmailIntegrationError as error:
+                self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                return
+            except Exception as error:
+                self._send_json({"error": f"Nie udalo sie zsynchronizowac Gmaila: {error}"}, HTTPStatus.BAD_GATEWAY)
+                return
             self._send_json(build_dashboard(state), HTTPStatus.OK)
             return
 
@@ -208,18 +242,19 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
 
         if parsed_url.path == "/api/daily-update":
             state = read_state()
-            state["dailyUpdate"] = {
-                "lastRun": now_label(),
-                "status": "zrobione",
-                "items": [
-                    "Pobrano najnowsze wiadomosci demo",
-                    "Przeliczono waznych nadawcow",
-                    "Odswiezono raport dzienny i statusy odpowiedzi",
-                ],
-            }
-            apply_important_senders(state)
-            state["activity"].insert(0, "Wykonano codzienna aktualizacje danych demo.")
-            write_state(state)
+            try:
+                sync_gmail_messages(state)
+                state = read_state()
+            except GmailIntegrationError:
+                state["dailyUpdate"] = {
+                    "lastRun": now_label(),
+                    "status": "czeka",
+                    "items": [
+                        "Brak polaczenia Gmail",
+                        "Polacz konto, a potem uruchom aktualizacje ponownie",
+                    ],
+                }
+                write_state(state)
             self._send_json(build_dashboard(state), HTTPStatus.OK)
             return
 
@@ -297,6 +332,76 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _redirect(self, location):
+        self.send_response(HTTPStatus.FOUND)
+        self.send_header("Location", location)
+        self.end_headers()
+
+    def _send_html(self, html, status=HTTPStatus.OK):
+        body = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _start_google_auth(self):
+        if not google_libs_available():
+            self._send_html("<h1>Brakuje bibliotek Google</h1><p>Uruchom: pip install -r requirements.txt</p>", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        if not GMAIL_CLIENT_PATH.exists():
+            self._send_html("<h1>Brakuje pliku OAuth</h1><p>Oczekiwany plik: secrets/gmail_oauth_client.json</p>", HTTPStatus.BAD_REQUEST)
+            return
+
+        flow = Flow.from_client_secrets_file(str(GMAIL_CLIENT_PATH), scopes=GMAIL_SCOPES, redirect_uri=GOOGLE_REDIRECT_URI)
+        auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="false", prompt="consent")
+        DATA_DIR.mkdir(exist_ok=True)
+        OAUTH_STATE_PATH.write_text(json.dumps({"state": state}), encoding="utf-8")
+        self._redirect(auth_url)
+
+    def _finish_google_auth(self, parsed_url):
+        if not google_libs_available():
+            self._send_html("<h1>Brakuje bibliotek Google</h1><p>Uruchom: pip install -r requirements.txt</p>", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        params = parse_qs(parsed_url.query)
+        if "error" in params:
+            self._send_html(f"<h1>Logowanie przerwane</h1><p>{params['error'][0]}</p>", HTTPStatus.BAD_REQUEST)
+            return
+
+        expected_state = {}
+        if OAUTH_STATE_PATH.exists():
+            expected_state = json.loads(OAUTH_STATE_PATH.read_text(encoding="utf-8"))
+        if expected_state.get("state") and params.get("state", [""])[0] != expected_state["state"]:
+            self._send_html("<h1>Blad OAuth</h1><p>Nieprawidlowy parametr state.</p>", HTTPStatus.BAD_REQUEST)
+            return
+
+        code = params.get("code", [""])[0]
+        if not code:
+            self._send_html("<h1>Blad OAuth</h1><p>Brakuje kodu autoryzacji.</p>", HTTPStatus.BAD_REQUEST)
+            return
+
+        flow = Flow.from_client_secrets_file(str(GMAIL_CLIENT_PATH), scopes=GMAIL_SCOPES, redirect_uri=GOOGLE_REDIRECT_URI)
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+
+        TOKENS_DIR.mkdir(exist_ok=True)
+        GMAIL_TOKEN_PATH.write_text(credentials.to_json(), encoding="utf-8")
+
+        service = build_gmail_service(credentials)
+        profile = service.users().getProfile(userId="me").execute()
+
+        state = read_state()
+        state["connection"] = {
+            "status": "connected",
+            "account": profile.get("emailAddress", ""),
+            "lastSync": state.get("connection", {}).get("lastSync"),
+            "scopes": GMAIL_SCOPES,
+        }
+        state["activity"].insert(0, f"Polaczono Gmail: {profile.get('emailAddress', '')}.")
+        write_state(state)
+        self._send_html("<h1>Gmail polaczony</h1><p>Mozesz wrocic do aplikacji.</p><script>setTimeout(() => location.href='/', 1200)</script>")
+
 
 def build_dashboard(state=None):
     state = state or read_state()
@@ -323,6 +428,215 @@ def build_dashboard(state=None):
             ],
         },
     }
+
+
+class GmailIntegrationError(Exception):
+    pass
+
+
+def google_libs_available():
+    return all([Request, Credentials, Flow, build])
+
+
+def load_gmail_credentials():
+    if not google_libs_available():
+        raise GmailIntegrationError("Brakuje bibliotek Google. Uruchom: pip install -r requirements.txt")
+    if not GMAIL_CLIENT_PATH.exists():
+        raise GmailIntegrationError("Brakuje pliku secrets/gmail_oauth_client.json.")
+    if not GMAIL_TOKEN_PATH.exists():
+        raise GmailIntegrationError("Najpierw polacz Gmail przyciskiem 'Przygotuj polaczenie Gmail'.")
+
+    credentials = Credentials.from_authorized_user_file(str(GMAIL_TOKEN_PATH), GMAIL_SCOPES)
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(Request())
+        GMAIL_TOKEN_PATH.write_text(credentials.to_json(), encoding="utf-8")
+    if not credentials.valid:
+        raise GmailIntegrationError("Token Gmail jest niewazny. Polacz konto ponownie.")
+    return credentials
+
+
+def build_gmail_service(credentials):
+    return build("gmail", "v1", credentials=credentials)
+
+
+def sync_gmail_messages(state):
+    credentials = load_gmail_credentials()
+    service = build_gmail_service(credentials)
+    profile = service.users().getProfile(userId="me").execute()
+
+    result = service.users().messages().list(userId="me", maxResults=25, q="newer_than:30d").execute()
+    message_refs = result.get("messages", [])
+    synced_messages = []
+    saved_count = 0
+
+    state["connection"] = {
+        "status": "connected",
+        "account": profile.get("emailAddress", ""),
+        "lastSync": now_label(),
+        "scopes": GMAIL_SCOPES,
+    }
+    state.setdefault("downloads", [])
+    known_downloads = {item.get("path") for item in state["downloads"]}
+
+    for message_ref in message_refs:
+        raw_message = service.users().messages().get(userId="me", id=message_ref["id"], format="full").execute()
+        message = build_message_from_gmail(raw_message)
+        attachments = collect_gmail_attachments(raw_message.get("payload", {}))
+        message["attachments"] = [attachment["filename"] for attachment in attachments]
+
+        rule = find_matching_rule(message, state.get("rules", []))
+        if rule and attachments:
+            downloaded, new_count = download_gmail_attachments(service, raw_message["id"], attachments, rule, message, state, known_downloads)
+            saved_count += new_count
+            message["downloadedAttachments"] = downloaded
+            if downloaded:
+                folder = resolve_download_folder(rule["folder"])
+                message["downloadStatus"] = f"pobrano {len(downloaded)} plikow do {folder}"
+                message["gmailLabel"] = f"Agent/pobrane/{rule['label']}"
+            else:
+                message["downloadStatus"] = "brak bezpiecznych plikow do pobrania"
+        elif attachments:
+            message["downloadStatus"] = "brak pasujacej reguly"
+        else:
+            message["downloadStatus"] = "brak zalacznikow"
+
+        synced_messages.append(message)
+
+    state["messages"] = synced_messages
+    apply_important_senders(state)
+    state["dailyUpdate"] = {
+        "lastRun": now_label(),
+        "status": "zrobione",
+        "items": [
+            f"Pobrano metadane wiadomosci: {len(synced_messages)}",
+            f"Pobrano pliki wedlug regul: {saved_count}",
+            f"Konto Gmail: {profile.get('emailAddress', '')}",
+        ],
+    }
+    state["activity"].insert(0, f"Synchronizacja Gmail: {len(synced_messages)} wiadomosci, {saved_count} nowych plikow.")
+    state["activity"] = state["activity"][:50]
+    state["downloads"] = state["downloads"][:100]
+    write_state(state)
+
+
+def build_message_from_gmail(raw_message):
+    payload = raw_message.get("payload", {})
+    headers = {header.get("name", "").lower(): header.get("value", "") for header in payload.get("headers", [])}
+    from_header = headers.get("from", "")
+    _, sender_email = parseaddr(from_header)
+    received_at = gmail_internal_date(raw_message.get("internalDate"))
+    return {
+        "id": raw_message.get("id", ""),
+        "from": sender_email or from_header,
+        "subject": headers.get("subject", "(bez tematu)"),
+        "receivedAt": received_at,
+        "category": "Gmail",
+        "priority": "sredni",
+        "needsReply": False,
+        "summary": raw_message.get("snippet", ""),
+        "attachments": [],
+        "downloadedAttachments": [],
+        "downloadStatus": "czeka na synchronizacje",
+        "gmailLabel": "Agent/sprawdzone",
+        "attention": False,
+        "attentionReason": "",
+        "replyStatus": "brak odpowiedzi",
+    }
+
+
+def gmail_internal_date(value):
+    try:
+        timestamp = int(value) / 1000
+        return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return now_label()
+
+
+def collect_gmail_attachments(part):
+    attachments = []
+    filename = part.get("filename", "")
+    body = part.get("body", {})
+    if filename:
+        attachments.append(
+            {
+                "filename": filename,
+                "attachmentId": body.get("attachmentId"),
+                "data": body.get("data"),
+                "mimeType": part.get("mimeType", ""),
+            }
+        )
+    for child in part.get("parts", []) or []:
+        attachments.extend(collect_gmail_attachments(child))
+    return attachments
+
+
+def download_gmail_attachments(service, message_id, attachments, rule, message, state, known_downloads):
+    folder = resolve_download_folder(rule["folder"])
+    folder.mkdir(parents=True, exist_ok=True)
+    downloaded = []
+    new_count = 0
+
+    for attachment in attachments:
+        filename = sanitize_filename(attachment["filename"])
+        if not is_auto_downloadable(filename):
+            continue
+
+        target = unique_path(folder / filename)
+        payload = attachment.get("data")
+        if not payload and attachment.get("attachmentId"):
+            attachment_body = service.users().messages().attachments().get(
+                userId="me",
+                messageId=message_id,
+                id=attachment["attachmentId"],
+            ).execute()
+            payload = attachment_body.get("data")
+        if not payload:
+            continue
+
+        target.write_bytes(decode_gmail_data(payload))
+        downloaded.append({"name": filename, "path": str(target)})
+
+        if str(target) not in known_downloads:
+            known_downloads.add(str(target))
+            new_count += 1
+            state["downloads"].insert(
+                0,
+                {
+                    "file": filename,
+                    "path": str(target),
+                    "sender": message["from"],
+                    "subject": message["subject"],
+                    "rule": rule["name"],
+                    "downloadedAt": now_label(),
+                    "status": "pobrano",
+                },
+            )
+
+    return downloaded, new_count
+
+
+def decode_gmail_data(data):
+    padding = "=" * (-len(data) % 4)
+    return base64.urlsafe_b64decode(data + padding)
+
+
+def sanitize_filename(filename):
+    cleaned = "".join("_" if char in '<>:"/\\|?*' else char for char in filename).strip()
+    return cleaned or "zalacznik"
+
+
+def unique_path(path):
+    if not path.exists():
+        return path
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    index = 1
+    while True:
+        candidate = parent / f"{stem}_{index}{suffix}"
+        if not candidate.exists():
+            return candidate
+        index += 1
 
 
 def materialize_demo_downloads(state):

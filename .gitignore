@@ -2,5 +2,7 @@
 __pycache__/
 *.pyc
 data/local_state.json
+data/oauth_state.json
 downloads/
 tokens/
+secrets/
