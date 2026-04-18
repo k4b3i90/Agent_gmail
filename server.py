@@ -357,7 +357,10 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
         flow = Flow.from_client_secrets_file(str(GMAIL_CLIENT_PATH), scopes=GMAIL_SCOPES, redirect_uri=GOOGLE_REDIRECT_URI)
         auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="false", prompt="consent")
         DATA_DIR.mkdir(exist_ok=True)
-        OAUTH_STATE_PATH.write_text(json.dumps({"state": state}), encoding="utf-8")
+        OAUTH_STATE_PATH.write_text(
+            json.dumps({"state": state, "code_verifier": flow.code_verifier}),
+            encoding="utf-8",
+        )
         self._redirect(auth_url)
 
     def _finish_google_auth(self, parsed_url):
@@ -383,7 +386,12 @@ class GmailAssistantServer(BaseHTTPRequestHandler):
             return
 
         try:
-            flow = Flow.from_client_secrets_file(str(GMAIL_CLIENT_PATH), scopes=GMAIL_SCOPES, redirect_uri=GOOGLE_REDIRECT_URI)
+            flow = Flow.from_client_secrets_file(
+                str(GMAIL_CLIENT_PATH),
+                scopes=GMAIL_SCOPES,
+                redirect_uri=GOOGLE_REDIRECT_URI,
+                code_verifier=expected_state.get("code_verifier"),
+            )
             flow.fetch_token(code=code)
             credentials = flow.credentials
 
