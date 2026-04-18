@@ -487,7 +487,17 @@ def sync_gmail_messages(state):
     service = build_gmail_service(credentials)
     profile = service.users().getProfile(userId="me").execute()
 
-    result = service.users().messages().list(userId="me", maxResults=25, q="newer_than:30d").execute()
+    result = (
+        service.users()
+        .messages()
+        .list(
+            userId="me",
+            maxResults=25,
+            labelIds=["INBOX"],
+            q="in:inbox newer_than:30d -in:drafts -in:sent",
+        )
+        .execute()
+    )
     message_refs = result.get("messages", [])
     synced_messages = []
     saved_count = 0
