@@ -36,6 +36,8 @@ PORT = int(os.getenv("PORT", "4188"))
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", f"http://127.0.0.1:{PORT}/auth/google/callback")
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+for proxy_var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+    os.environ.pop(proxy_var, None)
 
 
 DEFAULT_STATE = {
@@ -442,15 +444,56 @@ def build_dashboard(state=None):
             "downloaded": len(state.get("downloads", [])),
             "rules": sum(1 for item in state["rules"] if item["enabled"]),
         },
-        "report": {
-            "daily": [
-                "Brak danych z Gmaila. Polacz konto i uruchom synchronizacje.",
-            ],
-            "weekly": [
-                "Brak danych tygodniowych. Raport powstanie po synchronizacji z Gmail.",
-            ],
-        },
+        "report": build_reports(state, messages),
     }
+
+
+def build_reports(state, messages):
+    connection = state.get("connection", {})
+    if connection.get("status") != "connected":
+        return {
+            "daily": ["Polacz Gmail i uruchom aktualizacje, wtedy raport wypelni sie automatycznie."],
+            "weekly": ["Raport tygodniowy powstanie po pierwszej synchronizacji Gmail."],
+        }
+
+    if not messages:
+        return {
+            "daily": ["Brak nowych wiadomosci przychodzacych w ostatnich 30 dniach."],
+            "weekly": ["Nie ma jeszcze danych do raportu tygodniowego."],
+        }
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_messages = [message for message in messages if message.get("receivedAt", "").startswith(today)]
+    source_messages = today_messages or messages[:10]
+    important = [message for message in source_messages if message.get("attention")]
+    needs_reply = [message for message in source_messages if message.get("needsReply")]
+    with_files = [message for message in source_messages if message.get("attachments")]
+    downloaded = [message for message in source_messages if message.get("downloadedAttachments")]
+
+    daily = [
+        f"Wiadomosci dzisiaj: {len(today_messages)}." if today_messages else "Dzisiaj brak nowych wiadomosci, pokazuje ostatnie pozycje z inboxa.",
+        f"Do uwagi: {format_subjects(important)}.",
+        f"Do odpowiedzi: {format_subjects(needs_reply)}.",
+        f"Zalaczniki do sprawdzenia: {format_subjects(with_files)}.",
+        f"Pobrane pliki: {sum(len(message.get('downloadedAttachments', [])) for message in downloaded)}.",
+    ]
+
+    weekly = [
+        f"Przejrzane wiadomosci z ostatniej synchronizacji: {len(messages)}.",
+        f"Wazne adresy wykryte w inboxie: {sum(1 for message in messages if message.get('attention'))}.",
+        f"Wiadomosci z zalacznikami: {sum(1 for message in messages if message.get('attachments'))}.",
+        f"Lacznie pobrane dokumenty: {len(state.get('downloads', []))}.",
+    ]
+    return {"daily": daily, "weekly": weekly}
+
+
+def format_subjects(messages, limit=3):
+    subjects = [message.get("subject", "(bez tematu)") for message in messages[:limit]]
+    if not subjects:
+        return "brak"
+    if len(messages) > limit:
+        subjects.append(f"+{len(messages) - limit} wiecej")
+    return ", ".join(subjects)
 
 
 class GmailIntegrationError(Exception):
